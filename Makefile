@@ -9,8 +9,8 @@
 TARGET = main
 SOURCES = \
 	Main.hs \
-	TableGameCombinator/Core.hs
-	Sample/Dominion.hs \
+	TableGameCombinator/Core.hs \
+	Sample/Dominion.hs
 MILIBS = 
 
 ## command settings

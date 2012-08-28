@@ -1,89 +1,59 @@
 {-# LANGUAGE RankNTypes #-}
 module TableGameCombinator.Core
-   ( Game
-   , GameVar
-   , newGameVar
-   , readGameVar
-   , writeGameVar
-   , modifyGameVar
-
-   , GameState (..)
-
-   , Process (..)
+   ( Process
 
    , runProcess
 
-   , msgProcess
-   , inputProcess
+   , tell
+   , line
+   , module Control.Monad.Trans.State.Lazy
 
    , may
+   , mayS
+
+   , choose
    ) where
 
-import System.Random.Shuffle
+import System.IO
 import Control.Monad
-import Control.Monad.Random.Class
-import Data.IORef
+import Control.Monad.Trans
+import Control.Monad.Trans.State.Lazy
+import Data.ByteString (ByteString)
 
 -- Game Monad
-type Game    = IO
-type GameVar = IORef
-
--- GameVar Manipulations
-newGameVar :: a -> Game (GameVar a)
-newGameVar = newIORef
-
-readGameVar :: GameVar a -> Game a
-readGameVar = readIORef
-
-writeGameVar :: GameVar a -> a -> Game ()
-writeGameVar = writeIORef
-
-modifyGameVar :: GameVar a -> (a -> a) -> Game ()
-modifyGameVar = modifyIORef
-
--- GameState class
-class GameState gs where
-   initialState :: Game gs
-
--- Game Process
-newtype Process gs a = Process (GameState gs => gs -> Game a)
-instance Monad (Process gs) where
-   a >>= k  = Process $
-      \gs -> let Process a' = a in
-             do
-                Process ka' <- fmap k (a' gs)
-                ka' gs
-   return x = Process $
-      \_ -> return x
+type Process gs = StateT gs IO
 
 -- Execution
-runProcess :: GameState gs => gs -> Process gs a -> IO a
-runProcess gs proc = do
-   let Process proc' = proc
-   proc' gs
+runProcess :: Process gs a -> gs -> IO a
+runProcess proc gs = evalStateT proc gs
 
--- Random
-instance MonadRandom (Process gs) where
-   getRandom     = Process $ \gs -> getRandom
-   getRandoms    = Process $ \gs -> getRandoms
-   getRandomR  x = Process $ \gs -> getRandomR  x
-   getRandomRs x = Process $ \gs -> getRandomRs x
+-- Lifted IO functions
+tell :: String -> Process gs ()
+tell x = lift $ do { putStr x; hFlush stdout}
 
--- Logging
-msgProcess :: GameState gs => String -> Process gs ()
-msgProcess msg = Process $ \_ -> putStrLn msg
-
--- Input
-inputProcess :: GameState gs => Process gs String
-inputProcess = Process $ \_ -> getLine
+line :: Process gs String
+line = lift getLine
 
 -- Combinators
-may :: GameState gs => Process gs a -> Process gs (Maybe a)
-may proc = do
-   msgProcess $ "[y/n]"
-   l <- inputProcess
-   if l == "y"
-      then liftM Just proc
-      else return Nothing
+may :: Process gs a -> Process gs (Maybe a)
+may = mayS ""
+
+mayS :: String -> Process gs a -> Process gs (Maybe a)
+mayS str proc = do
+   tell $ if str == "" then "" else str ++ " [y/n]"
+   l <- line
+   case l of
+      "y" -> liftM Just proc
+      "n" -> return Nothing
+      _ -> do
+         tell $ "Type 'y' or 'n'.\n"
+         mayS str proc
+
+choose :: [(String, Process gs a)] -> Process gs a
+choose alts = do
+   l <- line
+   case lookup l alts of
+      Just proc -> proc
+      Nothing   -> choose alts
 
 -- vim: set expandtab:

@@ -1,9 +1,8 @@
-import Sample.Dominion
+import qualified Sample.Dominion as D
 import TableGameCombinator.Core
 
 main = do
-   is <- initialState
-   runProcess is initialProcess
+   runProcess D.main D.initialState
    return ()
 
 -- vim: set expandtab:
