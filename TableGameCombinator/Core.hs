@@ -12,6 +12,7 @@ module TableGameCombinator.Core
    , mayS
 
    , choose
+   , doUntil
    ) where
 
 import System.IO
@@ -55,5 +56,12 @@ choose alts = do
    case lookup l alts of
       Just proc -> proc
       Nothing   -> choose alts
+
+doUntil :: Process gs (Maybe a) -> Process gs a
+doUntil proc = do
+   x <- proc
+   case x of
+      Just x' -> return x'
+      Nothing -> doUntil proc
 
 -- vim: set expandtab:

@@ -10,7 +10,14 @@ TARGET = main
 SOURCES = \
 	Main.hs \
 	TableGameCombinator/Core.hs \
-	Sample/Dominion.hs
+	TableGameCombinator/Phase.hs \
+	Sample/Dominion.hs \
+	Sample/Dominion/Base.hs \
+	Sample/Dominion/Card.hs \
+	Sample/Dominion/Phase.hs \
+	Sample/Dominion/CardData.hs \
+	Sample/Dominion/IO.hs \
+	Sample/Dominion/PrimEffect.hs
 MILIBS = 
 
 ## command settings
@@ -34,4 +41,4 @@ $(TARGET): $(SOURCES) $(MILIB_SRC)
 	rm $(OBJS)
 
 clean:
-	rm -f *.o $(TARGET) $(OBJS) $(GEN_OBJS)
+	rm -f $(TARGET) $(OBJS)
