@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 module TableGameCombinator.Phase
    ( Phase (..)
 
@@ -8,12 +9,14 @@ module TableGameCombinator.Phase
 
 import TableGameCombinator.Core
 
-class Phase gs ph where
-   setPhase  :: ph -> Process gs ()
-   getPhase  :: Process gs ph
-   phaseProc :: ph -> Process gs (Maybe ph)
+class Monad m => Phase m ph where
+   setPhase  :: ph -> m ()
+   getPhase  :: m ph
+   phaseProc :: ph -> m (Maybe ph)
 
-phaseController :: (Show ph, Phase gs ph) => ph -> Process gs ()
+phaseController :: (Show ph, Phase m ph, ODevice m String)
+                => ph
+                -> m ()
 phaseController ph = do
    setPhase ph
    tell $ "::: " ++ show ph ++ " :::\n"

@@ -16,8 +16,8 @@ SOURCES = \
 	Sample/Dominion/Card.hs \
 	Sample/Dominion/Phase.hs \
 	Sample/Dominion/CardData.hs \
-	Sample/Dominion/IO.hs \
-	Sample/Dominion/PrimEffect.hs
+	Sample/Dominion/Prim.hs \
+	Sample/Dominion/IOImpl/Console.hs
 MILIBS = 
 
 ## command settings

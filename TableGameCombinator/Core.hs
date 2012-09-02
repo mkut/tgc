@@ -1,63 +1,45 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 module TableGameCombinator.Core
-   ( Process
+   ( IDevice (..)
+   , ODevice (..)
 
-   , runProcess
-
-   , tell
-   , line
-   , module Control.Monad.Trans.State.Lazy
-
+   , YesNoInput (..)
    , may
-   , mayS
-
    , choose
    , doUntil
    ) where
 
-import System.IO
 import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.Trans.State.Lazy
-import Data.ByteString (ByteString)
+import Data.List
 
--- Game Monad
-type Process gs = StateT gs IO
-
--- Execution
-runProcess :: Process gs a -> gs -> IO a
-runProcess proc gs = evalStateT proc gs
-
--- Lifted IO functions
-tell :: String -> Process gs ()
-tell x = lift $ do { putStr x; hFlush stdout}
-
-line :: Process gs String
-line = lift getLine
+-- IO Device
+class Monad m => IDevice m i where
+   ask  :: m i
+class Monad m => ODevice m o where
+   tell :: o -> m ()
 
 -- Combinators
-may :: Process gs a -> Process gs (Maybe a)
-may = mayS ""
+data YesNoInput = Yes
+                | No
 
-mayS :: String -> Process gs a -> Process gs (Maybe a)
-mayS str proc = do
-   tell $ if str == "" then "" else str ++ " [y/n]"
-   l <- line
-   case l of
-      "y" -> liftM Just proc
-      "n" -> return Nothing
-      _ -> do
-         tell $ "Type 'y' or 'n'.\n"
-         mayS str proc
+may :: (ODevice m o, IDevice m YesNoInput) => o -> m a -> m (Maybe a)
+may msg proc = do
+   tell msg
+   res <- ask
+   case res of
+      Yes -> liftM Just proc
+      No  -> return Nothing
 
-choose :: [(String, Process gs a)] -> Process gs a
+choose :: (Eq i, IDevice m i, ODevice m [i]) => [(i, m a)] -> m a
 choose alts = do
-   l <- line
-   case lookup l alts of
+   tell $ map fst alts
+   res <- ask
+   case lookup res alts of
       Just proc -> proc
       Nothing   -> choose alts
 
-doUntil :: Process gs (Maybe a) -> Process gs a
+doUntil :: Monad m => m (Maybe a) -> m a
 doUntil proc = do
    x <- proc
    case x of

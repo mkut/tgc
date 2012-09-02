@@ -1,6 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Sample.Dominion
    ( main
-   , initialState
    ) where
 
 import Sample.Dominion.Base
@@ -11,15 +11,15 @@ import TableGameCombinator.Core
 import TableGameCombinator.Phase
 import qualified Data.Label as L
 
-main :: Dom ()
+main :: DomDevice Dom => Dom ()
 main = do
    initialize
-   phaseController EndPhase
+   phaseController CleanUpPhase
 
-initialize :: Dom ()
+initialize :: DomDevice Dom => Dom ()
 initialize = do
-   modify (L.set supply initialSupply)
-   modify (L.set discardPile initialDeck)
+   set supply initialSupply
+   set discardPile initialDeck
    where
       initialDeck = replicate 7 copper ++ replicate 3 estate
       initialSupply =
@@ -30,6 +30,7 @@ initialize = do
          , (duchy, 4)
          , (province, 4)
          , (curse, 0)
+         , (market, 10)
          ]
 
 -- vim: set expandtab:
