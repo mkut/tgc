@@ -8,57 +8,96 @@ import TableGameCombinator.Core
 
 import System.Random.Shuffle
 import Control.Monad
+import Control.Applicative
 import Data.List
+import qualified Data.MultiSet as MS
+import Data.Sequence (ViewL (..), ViewR (..), (<|), (|>))
+import qualified Data.Sequence as Seq
+import qualified Data.Traversable as Trav
+import Data.Foldable (toList)
+import Debug.Trace
 
 -- Action
-play :: DomDevice Dom => Int -> Dom Card
-play i = do
-   card <- gets hand (!!i)
-   modify hand (delete card)
-   modify playField (card:)
+play :: DomDevice Dom => Card -> Dom Card
+play card = do
+   tell $ "You play a " ++ show card ++ ".\n"
+   modify hand (MS.delete card)
+   modify playField (|>card)
    cardEffect card
    return card
 
-buy :: DomDevice Dom => Int -> Dom (Maybe Card)
-buy i = do
-   former <- gets supply (take i)
-   (card, n) <- gets supply (!!i)
-   latter <- gets supply (drop (i+1))
+playAction :: DomDevice Dom => Card -> Dom Card
+playAction card = plusAction (-1) *> play card
+
+buy :: DomDevice Dom => Card -> Dom Card
+buy card = do
+   tell $ "You buy a " ++ show card ++ ".\n"
    coinCount' <- get coinCount
-   if n /= 0 && coinCount' >= cardCost card
-      then do
-         plusBuy (-1)
-         set supply $ former ++ [(card, n-1)] ++ latter
-         modify discardPile (card:)
-         return $ Just card
-      else do
-         tell $ "you can't!\n"
-         return Nothing
+   plusBuy (-1)
+   plusCoin (-coinCount')
+   gainCard card
+
+canBuy :: DomDevice Dom => Card -> Dom Bool
+canBuy card = (cardCost card <=) <$> get coinCount
+
+gainCard :: DomDevice Dom => Card -> Dom Card
+gainCard card = do
+   modify supply $ MS.delete card
+   modify discardPile $ MS.insert card
+   return card
+
+gainBy :: DomDevice Dom => (Card -> Bool) -> Dom (Maybe Card)
+gainBy f = do
+   ops <- filter f <$> gets supply MS.distinctElems
+   if null ops
+      then return Nothing
+      else Just <$> chooseBy cardName gainCard ops
+
+gainUpTo :: DomDevice Dom => Int -> Dom (Maybe Card)
+gainUpTo coin = gainBy ((<=coin) . cardCost)
 
 draw :: DomDevice Dom => Dom (Maybe Card)
 draw = do
-   emp <- gets deck null
-   emp' <- gets discardPile null
-   case (emp, emp') of
-      (False, _) -> do
-         card <- gets deck head
-         modify deck tail
-         modify hand (card:)
+   view <- gets deck Seq.viewl
+   case view of
+      card :< ndeck -> do
+         set deck ndeck
+         modify hand $ MS.insert card
          tell $ "You draw a " ++ show card ++ ".\n"
          return $ Just card
-      (True, False) -> do
-         d <- get discardPile
-         set deck d
-         set discardPile []
-         shuffleDeck
-         draw
-      (True, True) -> return Nothing
+      EmptyL -> do
+         emp <- gets discardPile MS.null
+         if not emp
+            then do
+               ndeck <- gets discardPile toList
+               set deck $ Seq.fromList ndeck
+               set discardPile MS.empty
+               shuffleDeck
+               draw
+            else return Nothing
+
+trashCardFromHand :: DomDevice Dom => Card -> Dom Card
+trashCardFromHand card = do
+   tell $ "You trash a " ++ show card ++ ".\n"
+   modify hand $ MS.delete card
+   modify trashPile $ MS.insert card
+   return card
+
+trashFromHand :: DomDevice Dom => Dom (Maybe Card)
+trashFromHand = trashFromHandBy $ \_ -> True
+
+trashFromHandBy :: DomDevice Dom => (Card -> Bool) -> Dom (Maybe Card)
+trashFromHandBy f = do
+   ops <- filter f <$> gets hand MS.distinctElems
+   if null ops
+      then return Nothing
+      else Just <$> chooseBy cardName trashCardFromHand ops
 
 shuffleDeck :: DomDevice Dom => Dom ()
 shuffleDeck = do
-   d <- get deck
+   d <- gets deck toList
    d' <- shuffleM d
-   set deck d'
+   set deck $ Seq.fromList d'
    tell $ "You shuffle your deck.\n"
 
 plusCoin :: Int -> Dom ()
@@ -76,14 +115,14 @@ plusCard n = replicateM_ n draw
 -- IO (only) Action
 tellInfo :: DomDevice Dom => Dom ()
 tellInfo = do
-   supply'    <- get supply
+   supply'    <- gets supply MS.toOccurList
    coin       <- get coinCount
    action     <- get actionCount
    buy        <- get buyCount
    played     <- get playField
-   hand'      <- get hand
-   deckLen    <- gets deck length
-   discardLen <- gets discardPile length
+   hand'      <- gets hand toList
+   deckLen    <- gets deck Seq.length
+   discardLen <- gets discardPile MS.size
    tell $ replicate 60 '=' ++ "\n"
    tell $ "Supply "
    forM_ (zip [0..] supply') $ \(i, (x, n)) -> do
@@ -95,7 +134,7 @@ tellInfo = do
    tell $ "coin: " ++ show coin ++ "   action: " ++ show action ++ "   buy: " ++ show buy ++ "\n"
    tell $ replicate 60 '-' ++ "\n"
    tell $ "Played "
-   forM_ (zip [0..] played) $ \(i, x) -> do
+   Trav.forM (Seq.zip (Seq.fromList [0..Seq.length played - 1]) played) $ \(i, x) -> do
       when (i `mod` 5 == 0 && i /= 0) $ tell "\n       "
       tell $ show x ++ "     "
    tell "\n"

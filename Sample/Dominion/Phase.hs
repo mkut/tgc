@@ -14,6 +14,9 @@ import Control.Monad
 import Control.Applicative
 import qualified Data.Label as L
 import Data.List
+import qualified Data.MultiSet as MS
+import qualified Data.Sequence as Seq
+import Data.Foldable (toList)
 
 instance DomDevice Dom => Phase Dom DomPhase where
    setPhase  = set phase
@@ -33,31 +36,27 @@ actionPhase = do
 
 actionPhaseLoop :: DomDevice Dom => Dom (Maybe (Maybe DomPhase))
 actionPhaseLoop = do
-   modify hand sort
    actionCount' <- get actionCount
-   h <- get hand
-   let ixs = map fst $ filter ((==Action) . cardType . snd) $ zip [0..] h
-   if null ixs || actionCount' == 0
+   available <- gets hand $ filter ((==Action) . cardType) . MS.distinctElems
+   if null available || actionCount' == 0
       then return (Just $ Just $ MoneyPhase)
       else do
          choose $  [ ("end", return $ Just $ Just $ MoneyPhase) ]
                 ++ [ ("ls", tellInfo *> return Nothing) ]
-                ++ [ (show i, plusAction (-1) *> play i *> return Nothing) | i <- ixs ]
+                ++ [ (cardName card, playAction card *> return Nothing) | card <- available ]
 
 moneyPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 moneyPhase = doUntil moneyPhaseLoop
 
 moneyPhaseLoop :: DomDevice Dom => Dom (Maybe (Maybe DomPhase))
 moneyPhaseLoop = do
-   modify hand sort
-   h <- get hand
-   let ixs = map fst $ filter ((==Treasure) . cardType . snd) $ zip [0..] h
-   if null ixs
+   available <- gets hand $ filter ((==Treasure) . cardType) . MS.distinctElems
+   if null available
       then return (Just $ Just $ BuyPhase)
       else do
          choose $  [ ("end", return $ Just $ Just $ BuyPhase) ]
                 ++ [ ("ls", tellInfo *> return Nothing) ]
-                ++ [ (show i, play i *> return Nothing) | i <- ixs ]
+                ++ [ (cardName card, play card *> return Nothing) | card <- available ]
 
 buyPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 buyPhase = doUntil buyPhaseLoop
@@ -65,21 +64,23 @@ buyPhase = doUntil buyPhaseLoop
 buyPhaseLoop :: DomDevice Dom => Dom (Maybe (Maybe DomPhase))
 buyPhaseLoop = do
    buyCount' <- get buyCount
-   n <- gets supply length
+   supply' <- gets supply MS.distinctElems
+   available <- filterM canBuy supply'
    if buyCount' == 0
       then return (Just $ Just $ CleanUpPhase)
       else do
          choose $  [ ("end", return $ Just $ Just $ CleanUpPhase) ]
                 ++ [ ("ls", tellInfo *> return Nothing) ]
-                ++ [ (show i, buy i *> return Nothing) | i <- [0..n-1] ]
+                ++ [ (cardName card, buy card *> return Nothing) | card <- available ]
 
 cleanUpPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 cleanUpPhase = do
    h <- get hand
+   modify discardPile $ MS.union h
+   set hand MS.empty
    p <- get playField
-   set hand []
-   set playField []
-   modify discardPile ((h++) . (p++))
+   modify discardPile $ MS.union $ MS.fromList $ toList p
+   set playField Seq.empty
    plusCard 5
    return $ Just ActionPhase
 

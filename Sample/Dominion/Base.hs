@@ -10,11 +10,15 @@ import Control.Monad.Trans
 import qualified Control.Monad.Trans.State.Lazy as S
 import Data.Label (mkLabel, (:->))
 import qualified Data.Label as L
+import Data.MultiSet (MultiSet)
+import qualified Data.MultiSet as MS
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 
 -- Game Monad
 type Dom = S.StateT DominionState IO
 
--- IO Device
+-- I/O Device
 class ( IDevice m String
       , ODevice m String
       , ODevice m [String]
@@ -34,6 +38,10 @@ data Card = Card
    , cardVP     :: Int
    , cardEffect :: Dom ()
    }
+instance Eq Card where
+   x == y = cardName x == cardName y
+instance Ord Card where
+   compare x y = compare (cardName x) (cardName y)
 
 -- Phase
 data DomPhase = ActionPhase
@@ -45,12 +53,12 @@ data DomPhase = ActionPhase
 -- GameState
 data DominionState = DS
    { _phase       :: DomPhase
-   , _deck        :: [Card]
-   , _hand        :: [Card]
-   , _playField   :: [Card]
-   , _discardPile :: [Card]
-   , _trashPile   :: [Card]
-   , _supply      :: [(Card, Int)]
+   , _deck        :: Seq Card
+   , _hand        :: MultiSet Card
+   , _playField   :: Seq Card
+   , _discardPile :: MultiSet Card
+   , _trashPile   :: MultiSet Card
+   , _supply      :: MultiSet Card
    , _actionCount :: Int
    , _coinCount   :: Int
    , _buyCount    :: Int
@@ -60,12 +68,12 @@ mkLabel ''DominionState
 initialState :: DominionState
 initialState = DS
    { _phase       = ActionPhase
-   , _deck        = []
-   , _hand        = []
-   , _playField   = []
-   , _discardPile = []
-   , _trashPile   = []
-   , _supply      = []
+   , _deck        = Seq.empty
+   , _hand        = MS.empty
+   , _playField   = Seq.empty
+   , _discardPile = MS.empty
+   , _trashPile   = MS.empty
+   , _supply      = MS.empty
    , _actionCount = 0
    , _coinCount   = 0
    , _buyCount    = 0
