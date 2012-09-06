@@ -34,7 +34,7 @@ buy card = do
    tell $ "You buy a " ++ show card ++ ".\n"
    coinCount' <- get coinCount
    plusBuy (-1)
-   plusCoin (-coinCount')
+   plusCoin (-cardCost card)
    gainCard card
 
 canBuy :: DomDevice Dom => Card -> Dom Bool
