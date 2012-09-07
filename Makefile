@@ -13,11 +13,11 @@ SOURCES = \
 	TableGameCombinator/Phase.hs \
 	TableGameCombinator/State.hs \
 	TableGameCombinator/Zone.hs \
+	TableGameCombinator/Zone/State.hs \
 	TableGameCombinator/Zone/Sequence.hs \
 	TableGameCombinator/Zone/MultiSet.hs \
 	Sample/Dominion.hs \
 	Sample/Dominion/Base.hs \
-	Sample/Dominion/Card.hs \
 	Sample/Dominion/Phase.hs \
 	Sample/Dominion/CardData.hs \
 	Sample/Dominion/Prim.hs \

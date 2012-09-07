@@ -2,23 +2,21 @@
 {-# LANGUAGE FlexibleInstances #-}
 module TableGameCombinator.Zone.Sequence where
 
-import TableGameCombinator.Zone
+import {-# SOURCE #-} TableGameCombinator.Zone
 
 import Data.Sequence
 
 instance IZone (Seq a) a Top where
-   fromView _ Empty    = empty
-   fromView _ (x:<<xs) = x<|xs
+   add _ = (<|)
 instance OZone (Seq a) a Top where
    view     _ xs       = case viewl xs of
-      EmptyL -> Empty
+      EmptyL -> NoView
       x:<xs' -> x:<<xs'
 instance IZone (Seq a) a Bottom where
-   fromView _ Empty    = empty
-   fromView _ (x:<<xs) = xs|>x
+   add _ = flip (|>)
 instance OZone (Seq a) a Bottom where
    view     _ xs       = case viewr xs of
-      EmptyR -> Empty
+      EmptyR -> NoView
       xs':>x -> x:<<xs'
 
 -- vim: set expandtab:

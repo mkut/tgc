@@ -4,6 +4,7 @@ module Sample.Dominion.Base where
    
 import TableGameCombinator.Core
 import TableGameCombinator.State
+import TableGameCombinator.Zone
 
 import System.IO
 import Control.Monad.State.Class (MonadState)
@@ -18,13 +19,6 @@ import qualified Data.Sequence as Seq
 
 -- Game Monad
 type Dom = StateT DominionState IO
-
--- I/O Device
-class ( IDevice m String
-      , ODevice m String
-      , ODevice m [String]
-      )
-      => DomDevice m where
 
 -- Card
 data CardType = Treasure
@@ -79,5 +73,37 @@ initialState = DS
    , _coinCount   = 0
    , _buyCount    = 0
    }
+
+-- Log
+data Log = Draw Card
+         | Trash Card
+         | Play Card
+         | Buy Card
+         | Shuffle
+
+-- I/O Device
+class ( IDevice m String
+      , ODevice m String
+      , ODevice m [String]
+      , ODevice m DominionState
+      , ODevice m Log
+      )
+      => DomDevice m where
+
+-- Zone Port
+top :: Top Card
+top = Top
+
+bottom :: Bottom Card
+bottom = Bottom
+
+select :: Card -> Select Card
+select c = Select c
+
+iAny :: IAny Card
+iAny = IAny
+
+oAny :: OAny Card
+oAny = OAny
 
 -- vim: set expandtab:

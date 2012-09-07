@@ -4,6 +4,7 @@ module TableGameCombinator.State
    ( RecordMonadState (..)
    , gets
    , modify
+   , getAll
    ) where
 
 import Control.Monad
@@ -25,5 +26,8 @@ gets k f = liftM f $ get k
 
 modify :: RecordMonadState s m lens => lens s a -> (a -> a) -> m ()
 modify k f = set k =<< gets k f
+
+getAll :: MonadState s m => m s
+getAll = S.get
 
 -- vim: set expandtab:

@@ -7,6 +7,7 @@ module TableGameCombinator.Core
    , YesNoInput (..)
    , may
    , ifYouDo
+   , ifYouDont
    , choose
    , chooseBy
    , doUntil
@@ -37,6 +38,13 @@ may msg proc = do
 
 ifYouDo :: Monad m => (a -> m b) -> m (Maybe a) -> m (Maybe b)
 ifYouDo f = (Trav.mapM f =<<)
+
+ifYouDont :: Monad m => m b -> m (Maybe a) -> m (Maybe b)
+ifYouDont f x = do
+   x' <- x
+   case x' of
+      Nothing -> liftM Just f
+      Just _  -> return Nothing
 
 choose :: (Eq i, IDevice m i, ODevice m [i], Functor m) => [(i, m a)] -> m (Maybe a)
 choose []   = return Nothing
