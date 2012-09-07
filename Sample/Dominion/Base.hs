@@ -1,14 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Sample.Dominion.Base where
    
 import TableGameCombinator.Core
+import TableGameCombinator.State
 
 import System.IO
-import Control.Monad.Trans
-import qualified Control.Monad.Trans.State.Lazy as S
-import Data.Label (mkLabel, (:->))
+import Control.Monad.State.Class (MonadState)
+import Control.Monad.State.Lazy (StateT)
+import qualified Control.Monad.State.Lazy as S
+import Data.Label (mkLabelsMono)
 import qualified Data.Label as L
 import Data.MultiSet (MultiSet)
 import qualified Data.MultiSet as MS
@@ -16,7 +17,7 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 
 -- Game Monad
-type Dom = S.StateT DominionState IO
+type Dom = StateT DominionState IO
 
 -- I/O Device
 class ( IDevice m String
@@ -63,7 +64,7 @@ data DominionState = DS
    , _coinCount   :: Int
    , _buyCount    :: Int
    }
-mkLabel ''DominionState
+mkLabelsMono [''DominionState]
 
 initialState :: DominionState
 initialState = DS
@@ -78,18 +79,5 @@ initialState = DS
    , _coinCount   = 0
    , _buyCount    = 0
    }
-
--- State Operations
-get :: (DominionState :-> a) -> Dom a
-get lens = gets lens id
-
-gets :: (DominionState :-> a) -> (a -> b) -> Dom b
-gets lens f = S.gets (f . L.get lens)
-
-modify :: (DominionState :-> a) -> (a -> a) -> Dom ()
-modify lens f = S.modify (L.modify lens f)
-
-set :: (DominionState :-> a) -> a -> Dom ()
-set lens x = S.modify (L.set lens x)
 
 -- vim: set expandtab:

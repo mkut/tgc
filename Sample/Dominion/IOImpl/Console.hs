@@ -9,7 +9,7 @@ import TableGameCombinator.Core
 
 import System.IO
 import Control.Monad.Trans
-import qualified Control.Monad.Trans.State.Lazy as S
+import qualified Control.Monad.State.Lazy as S
 import Data.List
 
 instance DomDevice Dom

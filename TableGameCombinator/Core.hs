@@ -13,6 +13,7 @@ module TableGameCombinator.Core
    ) where
 
 import Control.Monad
+import Control.Applicative
 import Data.List
 import qualified Data.Traversable as Trav
 
@@ -37,15 +38,17 @@ may msg proc = do
 ifYouDo :: Monad m => (a -> m b) -> m (Maybe a) -> m (Maybe b)
 ifYouDo f = (Trav.mapM f =<<)
 
-choose :: (Eq i, IDevice m i, ODevice m [i]) => [(i, m a)] -> m a
-choose ops = do
+choose :: (Eq i, IDevice m i, ODevice m [i], Functor m) => [(i, m a)] -> m (Maybe a)
+choose []   = return Nothing
+choose [op] = Just <$> snd op
+choose ops  = do
    tell $ map fst ops
    res <- ask
    case lookup res ops of
-      Just proc -> proc
+      Just proc -> Just <$> proc
       Nothing   -> choose ops
 
-chooseBy :: (Eq i, IDevice m i, ODevice m [i]) => (a -> i) -> (a -> m a) -> [a] -> m a
+chooseBy :: (Eq i, IDevice m i, ODevice m [i], Functor m) => (a -> i) -> (a -> m a) -> [a] -> m (Maybe a)
 chooseBy f g ops = choose $ zip (map f ops) (map g ops)
 
 doUntil :: Monad m => m (Maybe a) -> m a

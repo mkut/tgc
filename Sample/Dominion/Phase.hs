@@ -8,12 +8,14 @@ import Sample.Dominion.Base
 import Sample.Dominion.Prim
 
 import TableGameCombinator.Core
+import TableGameCombinator.State
 import TableGameCombinator.Phase
 
 import Control.Monad
 import Control.Applicative
 import qualified Data.Label as L
 import Data.List
+import Data.Maybe
 import qualified Data.MultiSet as MS
 import qualified Data.Sequence as Seq
 import Data.Foldable (toList)
@@ -41,9 +43,10 @@ actionPhaseLoop = do
    if null available || actionCount' == 0
       then return (Just $ Just $ MoneyPhase)
       else do
-         choose $  [ ("end", return $ Just $ Just $ MoneyPhase) ]
-                ++ [ ("ls", tellInfo *> return Nothing) ]
-                ++ [ (cardName card, playAction card *> return Nothing) | card <- available ]
+         (fromJust <$>) . choose $
+               [ ("end", return $ Just $ Just $ MoneyPhase) ]
+            ++ [ ("ls", tellInfo *> return Nothing) ]
+            ++ [ (cardName card, playAction card *> return Nothing) | card <- available ]
 
 moneyPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 moneyPhase = doUntil moneyPhaseLoop
@@ -54,9 +57,10 @@ moneyPhaseLoop = do
    if null available
       then return (Just $ Just $ BuyPhase)
       else do
-         choose $  [ ("end", return $ Just $ Just $ BuyPhase) ]
-                ++ [ ("ls", tellInfo *> return Nothing) ]
-                ++ [ (cardName card, play card *> return Nothing) | card <- available ]
+         (fromJust <$>) . choose $
+               [ ("end", return $ Just $ Just $ BuyPhase) ]
+            ++ [ ("ls", tellInfo *> return Nothing) ]
+            ++ [ (cardName card, play card *> return Nothing) | card <- available ]
 
 buyPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 buyPhase = doUntil buyPhaseLoop
@@ -69,9 +73,10 @@ buyPhaseLoop = do
    if buyCount' == 0
       then return (Just $ Just $ CleanUpPhase)
       else do
-         choose $  [ ("end", return $ Just $ Just $ CleanUpPhase) ]
-                ++ [ ("ls", tellInfo *> return Nothing) ]
-                ++ [ (cardName card, buy card *> return Nothing) | card <- available ]
+         (fromJust <$>) . choose $
+               [ ("end", return $ Just $ Just $ CleanUpPhase) ]
+            ++ [ ("ls", tellInfo *> return Nothing) ]
+            ++ [ (cardName card, buy card *> return Nothing) | card <- available ]
 
 cleanUpPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 cleanUpPhase = do

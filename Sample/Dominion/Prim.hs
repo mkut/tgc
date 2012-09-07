@@ -5,17 +5,18 @@ import Sample.Dominion.Base
 import Sample.Dominion.Card
 
 import TableGameCombinator.Core
+import TableGameCombinator.State
 
 import System.Random.Shuffle
 import Control.Monad
 import Control.Applicative
+import qualified Control.Monad.State.Class
 import Data.List
 import qualified Data.MultiSet as MS
 import Data.Sequence (ViewL (..), ViewR (..), (<|), (|>))
 import qualified Data.Sequence as Seq
 import qualified Data.Traversable as Trav
 import Data.Foldable (toList)
-import Debug.Trace
 
 -- Action
 play :: DomDevice Dom => Card -> Dom Card
@@ -47,11 +48,7 @@ gainCard card = do
    return card
 
 gainBy :: DomDevice Dom => (Card -> Bool) -> Dom (Maybe Card)
-gainBy f = do
-   ops <- filter f <$> gets supply MS.distinctElems
-   if null ops
-      then return Nothing
-      else Just <$> chooseBy cardName gainCard ops
+gainBy f = chooseBy cardName gainCard =<< filter f <$> gets supply MS.distinctElems
 
 gainUpTo :: DomDevice Dom => Int -> Dom (Maybe Card)
 gainUpTo coin = gainBy ((<=coin) . cardCost)
@@ -87,11 +84,7 @@ trashFromHand :: DomDevice Dom => Dom (Maybe Card)
 trashFromHand = trashFromHandBy $ \_ -> True
 
 trashFromHandBy :: DomDevice Dom => (Card -> Bool) -> Dom (Maybe Card)
-trashFromHandBy f = do
-   ops <- filter f <$> gets hand MS.distinctElems
-   if null ops
-      then return Nothing
-      else Just <$> chooseBy cardName trashCardFromHand ops
+trashFromHandBy f = chooseBy cardName trashCardFromHand =<< filter f <$> gets hand MS.distinctElems
 
 shuffleDeck :: DomDevice Dom => Dom ()
 shuffleDeck = do

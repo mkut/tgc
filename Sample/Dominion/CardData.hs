@@ -4,10 +4,12 @@ module Sample.Dominion.CardData where
 import Sample.Dominion.Base
 import Sample.Dominion.Prim
 
+import TableGameCombinator.Core
+import TableGameCombinator.State
+
 import Control.Monad
 import Control.Applicative
-
-import TableGameCombinator.Core
+import qualified Data.MultiSet as MS
 
 copper      = Card "Copper"      Treasure 0 0    $ plusCoin 1
 silver      = Card "Silver"      Treasure 3 0    $ plusCoin 2
@@ -28,5 +30,11 @@ woodcutter  :: DomDevice Dom => Card
 woodcutter  = Card "Woodcutter"  Action   3 0    $ plusBuy 1 *> plusCoin 2
 councilRoom :: DomDevice Dom => Card -- imcomplete
 councilRoom = Card "CouncilRoom" Action   5 0    $ plusCard 4 *> plusBuy 1
+throneRoom  :: DomDevice Dom => Card
+throneRoom  = Card "ThroneRoom"  Action   4 0    $ void $ chooseBy cardName (\x -> play x *> cardEffect x *> return x) =<< filter ((==Action) . cardType) <$> gets hand MS.distinctElems
+laboratory  :: DomDevice Dom => Card
+laboratory  = Card "Laboratory"  Action   5 0    $ plusCard 2 *> plusAction 1
+mine        :: DomDevice Dom => Card
+mine        = Card "Mine"        Action   5 0    $ void $ ifYouDo (\card -> gainBy (\x -> cardType x == Treasure && cardCost x <= cardCost card + 3)) $ trashFromHandBy ((==Treasure) . cardType)
 
 -- vim: set expandtab:
