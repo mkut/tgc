@@ -10,6 +10,8 @@ module TableGameCombinator.Core
    , ifYouDont
    , choose
    , chooseBy
+   , chooseSome
+   , chooseSomeBy
    , doUntil
    , doWhile
    , keep
@@ -18,6 +20,7 @@ module TableGameCombinator.Core
 import Control.Monad
 import Control.Applicative
 import Data.List
+import Data.Maybe
 import qualified Data.Traversable as Trav
 
 -- I/O Device
@@ -60,6 +63,23 @@ choose ops  = do
 
 chooseBy :: (Eq i, IDevice m i, ODevice m [i], Functor m) => (a -> i) -> (a -> m b) -> [a] -> m (Maybe b)
 chooseBy f g ops = choose $ zip (map f ops) (map g ops)
+
+chooseSome :: (Eq i, IDevice m [i], ODevice m [i], Functor m) => [(i, m a)] -> m [a]
+chooseSome []  = return []
+chooseSome ops = do
+   tell $ map fst ops
+   res <- ask
+   let ret = snd $ mapAccumL f ops res
+   if all isJust ret
+      then sequence $ map fromJust ret
+      else chooseSome ops
+   where
+      f ops' r = case lookup r ops' of
+         Just proc -> (deleteBy (\x y -> fst x == fst y) (r, proc) ops', Just proc)
+         Nothing   -> ([], Nothing)
+
+chooseSomeBy :: (Eq i, IDevice m [i], ODevice m [i], Functor m) => (a -> i) -> (a -> m b) -> [a] -> m [b]
+chooseSomeBy f g ops = chooseSome $ zip (map f ops) (map g ops)
 
 doUntil :: Monad m => m (Maybe a) -> m a
 doUntil proc = do

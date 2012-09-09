@@ -10,9 +10,11 @@ import TableGameCombinator.Core
 import System.IO
 import Control.Monad
 import Control.Monad.Trans
+import Control.Applicative
 import qualified Control.Monad.State.Lazy as S
 import qualified Data.Label as L
 import Data.List
+import Data.List.Split
 import qualified Data.MultiSet as MS
 import Data.Sequence (ViewL (..), ViewR (..), (<|), (|>))
 import qualified Data.Traversable as Trav
@@ -21,6 +23,8 @@ instance DomDevice Dom
 
 instance IDevice Dom String where
    ask = lift getLine
+instance IDevice Dom [String] where
+   ask = filter (/="") . splitOneOf "," <$> ask
 instance IDevice Dom YesNoInput where
    ask = do
       str <- ask
@@ -66,12 +70,13 @@ instance ODevice Dom DominionState where
          played     =           L.get playField   st
          hand'      =           L.get hand        st
 instance ODevice Dom Log where
-   tell (Draw  card) = tell $ "You draw a "  ++ show card ++ ".\n"
-   tell (Trash card) = tell $ "You trash a " ++ show card ++ ".\n"
-   tell (Play  card) = tell $ "You play a "  ++ show card ++ ".\n"
-   tell (Buy   card) = tell $ "You buy a "   ++ show card ++ ".\n"
-   tell (Gain  card) = tell $ "You gain a "  ++ show card ++ ".\n"
-   tell Shuffle      = tell $ "You shuffle your deck.\n"
+   tell (Draw    card) = tell $ "You draw a "    ++ show card ++ ".\n"
+   tell (Discard card) = tell $ "You discard a " ++ show card ++ ".\n"
+   tell (Trash   card) = tell $ "You trash a "   ++ show card ++ ".\n"
+   tell (Play    card) = tell $ "You play a "    ++ show card ++ ".\n"
+   tell (Buy     card) = tell $ "You buy a "     ++ show card ++ ".\n"
+   tell (Gain    card) = tell $ "You gain a "    ++ show card ++ ".\n"
+   tell Shuffle        = tell $ "You shuffle your deck.\n"
 
 colorStringOfCardType :: CardType -> String
 colorStringOfCardType Treasure = "\ESC[1;33m"

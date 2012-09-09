@@ -60,6 +60,7 @@ data DominionState = DS
    , _discardPile :: MultiSet Card
    , _trashPile   :: MultiSet Card
    , _supply      :: MultiSet Card
+   , _aside      :: MultiSet Card
    , _actionCount :: Int
    , _coinCount   :: Int
    , _buyCount    :: Int
@@ -75,6 +76,7 @@ initialState = DS
    , _discardPile = MS.empty
    , _trashPile   = MS.empty
    , _supply      = MS.empty
+   , _aside       = MS.empty
    , _actionCount = 0
    , _coinCount   = 0
    , _buyCount    = 0
@@ -82,6 +84,7 @@ initialState = DS
 
 -- Log
 data Log = Draw Card
+         | Discard Card
          | Trash Card
          | Play Card
          | Buy Card
@@ -91,6 +94,7 @@ data Log = Draw Card
 -- I/O Device
 class ( IDevice m String
       , IDevice m YesNoInput
+      , IDevice m [String]
       , ODevice m String
       , ODevice m [String]
       , ODevice m DominionState
@@ -146,5 +150,10 @@ toTrash = (trashPile, MS.insert)
 
 fromSupply :: Card -> DomDPort MultiSet Card
 fromSupply c = (supply, msDeletePort c)
+
+toAside :: DomIPort MultiSet Card
+toAside = (aside, MS.insert)
+fromAsideAny :: DomDPort MultiSet Card
+fromAsideAny = (aside, msDeletePortAny)
 
 -- vim: set expandtab:

@@ -42,7 +42,7 @@ moneylender = Card "Moneylender" Action   4 0    $ \_ -> void $ (\_ -> plusCoin 
       select = chooseCard (keep trashFromHand) =<< filter (==copper) <$> handOps
 woodcutter  :: DomDevice Dom => Card
 woodcutter  = Card "Woodcutter"  Action   3 0    $ \_ -> plusBuy 1 *> plusCoin 2
-councilRoom :: DomDevice Dom => Card -- imcomplete
+councilRoom :: DomDevice Dom => Card -- incomplete
 councilRoom = Card "CouncilRoom" Action   5 0    $ \_ -> plusCard 4 *> plusBuy 1
 throneRoom  :: DomDevice Dom => Card
 throneRoom  = Card "ThroneRoom"  Action   4 0    $ \t -> void $ chooseBy cardName (playCardN 2 (t+1)) =<< filter (withCardType Action) <$> handOps
@@ -52,7 +52,7 @@ mine        :: DomDevice Dom => Card
 mine        = Card "Mine"        Action   5 0    $ \_ -> void $ gain `ifYouDo` select
    where
       select = chooseCard (keep trashFromHand) =<< filter (withCardType Treasure) <$> handOps
-      gain card = chooseCard gainCard =<< filter (withCardType Treasure) . filter (costUpTp $ cardCost card + 3) <$> supplyOps
+      gain card = chooseCard gainCardToHand =<< filter (withCardType Treasure) . filter (costUpTp $ cardCost card + 3) <$> supplyOps
 workshop    :: DomDevice Dom => Card
 workshop    = Card "Workshop"    Action   3 0    $ \_ -> void $ chooseCard gainCard =<< filter (costUpTp 4) <$> supplyOps
 chancellor  :: DomDevice Dom => Card
@@ -63,5 +63,29 @@ feast       :: DomDevice Dom => Card
 feast       = Card "Feast"       Action   4 0    $ \t -> void $ trashTagged t *> gain
    where
       gain = chooseCard gainCard =<< filter (costUpTp 5) <$> supplyOps
+festival    :: DomDevice Dom => Card
+festival    = Card "Festival"    Action   5 0    $ \_ -> plusAction 2 *> plusBuy 1 *> plusCoin 2
+library     :: DomDevice Dom => Card
+library     = Card "Library"     Action   5 0    $ \_ -> void $ doWhile drawReveal *> moveZone fromAsideAny toDiscard
+   where
+      drawReveal = do
+         n <- gets hand MS.size
+         if (n < 7)
+            then do
+               mcard <- draw
+               case mcard of
+                  Nothing   -> return Nothing
+                  Just card -> if withCardType Action card
+                     then do
+                        may "put aside this card?[yes/no]" $ movePort (fromHand card) toAside
+                        return mcard
+                     else return mcard
+            else return Nothing
+cellor      :: DomDevice Dom => Card
+cellor      = Card "Cellor"      Action   2 0    $ \_ -> plusAction 1 *> do
+   n <- length <$> (chooseSomeBy cardName (keep discard) =<< gets hand MS.elems)
+   plusCard n
+gardens     :: DomDevice Dom => Card -- incomplete
+gardens     = Card "Gardens"     Victory  4 0    $ \_ -> noAction
 
 -- vim: set expandtab:

@@ -57,12 +57,18 @@ draw = do
                return $ Just card
             Nothing -> return Nothing
 
+discard :: DomDevice Dom
+        => Card
+        -> Dom ()
+discard card = do
+   tell $ Discard card
+   void $ movePort (fromHand card) toDiscard
+
 -- Play a card
 playTagged :: DomDevice Dom
            => Tag
            -> Dom (Maybe TCard)
 playTagged t = do
-   replicateM_ t $ tell "\t"
    mtcard <- getTagged t playField
    case mtcard of
       Nothing   -> return Nothing
@@ -104,8 +110,8 @@ trashFromHand :: DomDevice Dom
               => Card
               -> Dom ()
 trashFromHand card = do
-   movePort (fromHand card) toTrash
    tell $ Trash card
+   void $ movePort (fromHand card) toTrash
 
 trashTagged :: DomDevice Dom
             => Tag
@@ -117,25 +123,32 @@ gainCard :: DomDevice Dom
          => Card
          -> Dom ()
 gainCard card = do
-   movePort (fromSupply card) toDiscard
    tell $ Gain card
+   void $ movePort (fromSupply card) toDiscard
 
 buy :: DomDevice Dom
     => Card -> Dom ()
 buy card = do
+   tell $ Buy card
    coinCount' <- get coinCount
    plusBuy (-1)
    plusCoin (-cardCost card)
-   gainCard card
-   tell $ Buy card
+   void $ gainCard card
+
+gainCardToHand :: DomDevice Dom
+         => Card
+         -> Dom ()
+gainCardToHand card = do
+   tell $ Gain card
+   void $ movePort (fromSupply card) toHand
 
 -- Shuffle a deck
 shuffleDeck :: DomDevice Dom => Dom ()
 shuffleDeck = do
+   tell $ Shuffle
    d <- get deck
    d' <- shuffleM d
    set deck d'
-   tell $ Shuffle
 
 -- Status
 canBuy :: DomDevice Dom

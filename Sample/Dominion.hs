@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections #-}
 module Sample.Dominion
    ( main
    ) where
@@ -11,6 +13,9 @@ import TableGameCombinator.Core
 import TableGameCombinator.State
 import TableGameCombinator.Phase
 import TableGameCombinator.Tag
+
+import System.Random.Shuffle
+import Control.Applicative
 import qualified Data.Label as L
 import qualified Data.MultiSet as MS
 
@@ -21,33 +26,39 @@ main = do
 
 initialize :: DomDevice Dom => Dom ()
 initialize = do
-   set supply initialSupply
+   custom <- take 10 <$> shuffleM customSupply
+   set supply $ MS.fromOccurList $ defaultSupply ++ map (,10) custom
    set discardPile initialDeck
    where
       initialDeck = MS.fromOccurList
          [ (copper, 7)
          , (estate, 3)
          ]
-      initialSupply = MS.fromOccurList
+      defaultSupply =
          [ (copper, 53)
          , (silver, 40)
          , (gold, 30)
          , (estate, 4)
          , (duchy, 4)
          , (province, 4)
-         , (curse, 0)
-         , (market, 10)
-         , (remodel, 10)
-         , (smithy, 10)
-         , (moneylender, 10)
-         , (woodcutter, 10)
-         , (councilRoom, 10)
-         , (throneRoom, 10)
-         , (laboratory, 10)
-         , (mine, 10)
-         , (workshop, 10)
-         , (chancellor, 10)
-         , (feast, 10)
+         ]
+      customSupply =
+         [ market
+         , remodel
+         , smithy
+         , moneylender
+         , woodcutter
+         , councilRoom
+         , throneRoom
+         , laboratory
+         , mine
+         , workshop
+         , chancellor
+         , feast
+         , festival
+         , library
+         , cellor
+         , gardens
          ]
 
 -- vim: set expandtab:
