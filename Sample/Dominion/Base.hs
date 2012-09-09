@@ -1,21 +1,25 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Sample.Dominion.Base where
    
 import TableGameCombinator.Core
 import TableGameCombinator.State
 import TableGameCombinator.Zone
+import TableGameCombinator.Tag
 
 import System.IO
+import Control.Applicative
 import Control.Monad.State.Class (MonadState)
 import Control.Monad.State.Lazy (StateT)
 import qualified Control.Monad.State.Lazy as S
-import Data.Label (mkLabelsMono)
+import qualified Data.List as List
+import Data.Label (mkLabelsMono, Lens)
 import qualified Data.Label as L
 import Data.MultiSet (MultiSet)
 import qualified Data.MultiSet as MS
-import Data.Sequence (Seq)
-import qualified Data.Sequence as Seq
+import qualified Data.Foldable as Fold (Foldable, toList)
 
 -- Game Monad
 type Dom = StateT DominionState IO
@@ -31,12 +35,14 @@ data Card = Card
    , cardType   :: CardType
    , cardCost   :: Int
    , cardVP     :: Int
-   , cardEffect :: Dom ()
+   , cardEffect :: Int -> Dom ()
    }
 instance Eq Card where
    x == y = cardName x == cardName y
 instance Ord Card where
    compare x y = compare (cardName x) (cardName y)
+
+type TCard = Tagged Card
 
 -- Phase
 data DomPhase = ActionPhase
@@ -48,9 +54,9 @@ data DomPhase = ActionPhase
 -- GameState
 data DominionState = DS
    { _phase       :: DomPhase
-   , _deck        :: Seq Card
+   , _deck        :: [Card]
    , _hand        :: MultiSet Card
-   , _playField   :: Seq Card
+   , _playField   :: [TCard]
    , _discardPile :: MultiSet Card
    , _trashPile   :: MultiSet Card
    , _supply      :: MultiSet Card
@@ -63,9 +69,9 @@ mkLabelsMono [''DominionState]
 initialState :: DominionState
 initialState = DS
    { _phase       = ActionPhase
-   , _deck        = Seq.empty
+   , _deck        = []
    , _hand        = MS.empty
-   , _playField   = Seq.empty
+   , _playField   = []
    , _discardPile = MS.empty
    , _trashPile   = MS.empty
    , _supply      = MS.empty
@@ -79,10 +85,12 @@ data Log = Draw Card
          | Trash Card
          | Play Card
          | Buy Card
+         | Gain Card
          | Shuffle
 
 -- I/O Device
 class ( IDevice m String
+      , IDevice m YesNoInput
       , ODevice m String
       , ODevice m [String]
       , ODevice m DominionState
@@ -91,19 +99,52 @@ class ( IDevice m String
       => DomDevice m where
 
 -- Zone Port
-top :: Top Card
-top = Top
+type DomIPort z a = ZoneIPort (Lens (->)) DominionState (z a) a
+type DomDPort z a = ZoneDPort (Lens (->)) DominionState (z a) a
 
-bottom :: Bottom Card
-bottom = Bottom
+msDeletePort :: Ord a => a -> DeletePort (MultiSet a) a
+msDeletePort x = deletePort f g
+   where
+      f z = if MS.member x z then Just x else Nothing
+      g = MS.delete x
 
-select :: Card -> Select Card
-select c = Select c
+msDeletePortAny :: Ord a => DeletePort (MultiSet a) a
+msDeletePortAny z = if MS.null z
+   then Nothing
+   else msDeletePort (head $ MS.distinctElems z) z
 
-iAny :: IAny Card
-iAny = IAny
+toDeckTop :: DomIPort [] Card
+toDeckTop = (deck, (:))
+fromDeckTop :: DomDPort [] Card
+fromDeckTop = (deck, listDeletePort)
 
-oAny :: OAny Card
-oAny = OAny
+toHand :: DomIPort MultiSet Card
+toHand = (hand, MS.insert)
+fromHand :: Card -> DomDPort MultiSet Card
+fromHand c = (hand, msDeletePort c)
+fromHandAny :: DomDPort MultiSet Card
+fromHandAny = (hand, msDeletePortAny)
+
+toPlay :: DomIPort [] TCard
+toPlay = (playField, (:))
+fromPlay :: DomDPort [] TCard
+fromPlay = (playField, listDeletePort)
+fromPlayTagged :: Tag -> DomDPort [] TCard
+fromPlayTagged t = (playField, dp)
+   where
+      dp z = case List.find (tagged t) z of
+         Nothing -> Nothing
+         Just x  -> Just (x, List.delete x z)
+
+toDiscard :: DomIPort MultiSet Card
+toDiscard = (discardPile, MS.insert)
+fromDiscardAny :: DomDPort MultiSet Card
+fromDiscardAny = (discardPile, msDeletePortAny)
+
+toTrash :: DomIPort MultiSet Card
+toTrash = (trashPile, MS.insert)
+
+fromSupply :: Card -> DomDPort MultiSet Card
+fromSupply c = (supply, msDeletePort c)
 
 -- vim: set expandtab:

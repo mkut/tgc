@@ -10,6 +10,7 @@ import Sample.Dominion.CardData
 import TableGameCombinator.Core
 import TableGameCombinator.State
 import TableGameCombinator.Phase
+import TableGameCombinator.Tag
 import qualified Data.Label as L
 import qualified Data.MultiSet as MS
 
@@ -44,6 +45,9 @@ initialize = do
          , (throneRoom, 10)
          , (laboratory, 10)
          , (mine, 10)
+         , (workshop, 10)
+         , (chancellor, 10)
+         , (feast, 10)
          ]
 
 -- vim: set expandtab:

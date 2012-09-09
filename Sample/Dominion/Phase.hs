@@ -10,6 +10,8 @@ import Sample.Dominion.Prim
 import TableGameCombinator.Core
 import TableGameCombinator.State
 import TableGameCombinator.Phase
+import TableGameCombinator.Zone
+import TableGameCombinator.Tag
 
 import Control.Monad
 import Control.Applicative
@@ -39,7 +41,7 @@ actionPhase = do
 actionPhaseLoop :: DomDevice Dom => Dom (Maybe (Maybe DomPhase))
 actionPhaseLoop = do
    actionCount' <- get actionCount
-   available <- gets hand $ filter ((==Action) . cardType) . MS.distinctElems
+   available <- filter (withCardType Action) <$> handOps
    if null available || actionCount' == 0
       then return (Just $ Just $ MoneyPhase)
       else do
@@ -53,14 +55,16 @@ moneyPhase = doUntil moneyPhaseLoop
 
 moneyPhaseLoop :: DomDevice Dom => Dom (Maybe (Maybe DomPhase))
 moneyPhaseLoop = do
-   available <- gets hand $ filter ((==Treasure) . cardType) . MS.distinctElems
+   available <- filter (withCardType Treasure) <$> handOps
+   all <- filter (withCardType Treasure) <$> gets hand MS.elems
    if null available
       then return (Just $ Just $ BuyPhase)
       else do
          (fromJust <$>) . choose $
                [ ("end", return $ Just $ Just $ BuyPhase) ]
             ++ [ ("ls", tellInfo *> return Nothing) ]
-            ++ [ (cardName card, play card *> return Nothing) | card <- available ]
+            ++ [ ("all", mapM_ playMoney all *> return Nothing) ]
+            ++ [ (cardName card, playMoney card *> return Nothing) | card <- available ]
 
 buyPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 buyPhase = doUntil buyPhaseLoop
@@ -80,12 +84,8 @@ buyPhaseLoop = do
 
 cleanUpPhase :: DomDevice Dom => Dom (Maybe DomPhase)
 cleanUpPhase = do
-   h <- get hand
-   modify discardPile $ MS.union h
-   set hand MS.empty
-   p <- get playField
-   modify discardPile $ MS.union $ MS.fromList $ toList p
-   set playField Seq.empty
+   moveZone fromHandAny toDiscard
+   moveZoneWith withoutTags fromPlay toDiscard
    plusCard 5
    return $ Just ActionPhase
 

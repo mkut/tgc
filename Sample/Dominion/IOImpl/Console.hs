@@ -15,13 +15,19 @@ import qualified Data.Label as L
 import Data.List
 import qualified Data.MultiSet as MS
 import Data.Sequence (ViewL (..), ViewR (..), (<|), (|>))
-import qualified Data.Sequence as Seq
 import qualified Data.Traversable as Trav
 
 instance DomDevice Dom
 
 instance IDevice Dom String where
    ask = lift getLine
+instance IDevice Dom YesNoInput where
+   ask = do
+      str <- ask
+      case str of
+         "yes" -> return Yes
+         "no"  -> return No
+         _     -> ask
 instance ODevice Dom String where
    tell x = lift $ do { putStr x; hFlush stdout }
 instance ODevice Dom [String] where
@@ -39,7 +45,7 @@ instance ODevice Dom DominionState where
       tell $ "coin: " ++ show coin ++ "   action: " ++ show action ++ "   buy: " ++ show buy ++ "\n"
       tell $ replicate 60 '-' ++ "\n"
       tell $ "Played "
-      Trav.forM (Seq.zip (Seq.fromList [0..Seq.length played - 1]) played) $ \(i, x) -> do
+      Trav.forM (zip ([0..length played - 1]) played) $ \(i, x) -> do
          when (i `mod` 5 == 0 && i /= 0) $ tell "\n       "
          tell $ show x ++ "     "
       tell "\n"
@@ -51,19 +57,20 @@ instance ODevice Dom DominionState where
       tell "\n"
       tell $ replicate 60 '=' ++ "\n"
       where
-         supply'    =              L.get supply      st
-         deckLen    = Seq.length $ L.get deck        st
-         discardLen = MS.size    $ L.get discardPile st
-         coin       =              L.get coinCount   st
-         action     =              L.get actionCount st
-         buy        =              L.get buyCount    st
-         played     =              L.get playField   st
-         hand'      =              L.get hand        st
+         supply'    =           L.get supply      st
+         deckLen    = length  $ L.get deck        st
+         discardLen = MS.size $ L.get discardPile st
+         coin       =           L.get coinCount   st
+         action     =           L.get actionCount st
+         buy        =           L.get buyCount    st
+         played     =           L.get playField   st
+         hand'      =           L.get hand        st
 instance ODevice Dom Log where
    tell (Draw  card) = tell $ "You draw a "  ++ show card ++ ".\n"
    tell (Trash card) = tell $ "You trash a " ++ show card ++ ".\n"
    tell (Play  card) = tell $ "You play a "  ++ show card ++ ".\n"
    tell (Buy   card) = tell $ "You buy a "   ++ show card ++ ".\n"
+   tell (Gain  card) = tell $ "You gain a "  ++ show card ++ ".\n"
    tell Shuffle      = tell $ "You shuffle your deck.\n"
 
 colorStringOfCardType :: CardType -> String

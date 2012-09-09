@@ -1,78 +1,70 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-module TableGameCombinator.Zone
-   ( ZoneView (..)
-   , IZone (..)
-   , OZone (..)
+{-# LANGUAGE TupleSections #-}
+module TableGameCombinator.Zone where
 
-   , Top (..)
-   , Bottom (..)
-   , IAny (..)
-   , OAny (..)
-   , Select (..)
-   , Peek (..)
+import TableGameCombinator.Core
+import TableGameCombinator.State
 
-   , fromList
-   , toList
-   ) where
+import Control.Monad
+import Data.List
 
-import Prelude hiding (span, takeWhile, dropWhile)
-import qualified Data.Foldable as Fold
-import qualified Data.MultiSet as MS
-import TableGameCombinator.Zone.Sequence
-import TableGameCombinator.Zone.MultiSet
+-- Insert/Delete type
+type InsertPort z a = a -> z -> z
+type DeletePort z a = z -> Maybe (a, z)
 
--- ZoneView type
-data ZoneView z a = NoView
-                  | a :<< z
+deletePort :: (z -> Maybe a) -> (z -> z) -> DeletePort z a
+deletePort f g z = liftM (,g z) $ f z
 
--- I/O Zone port class
-class IZone z a p where
-   add  :: p a -> a -> z -> z
-class OZone z a p where
-   view :: p a -> z -> ZoneView z a
+listDeletePort :: DeletePort [a] a
+listDeletePort = deletePort (find $ \_ -> True) tail
 
-data Top a = Top
-data Bottom a = Bottom
-data IAny a = IAny
-data OAny a = OAny
-data Select a = Select a
-data Peek p a = Peek (p a)
+-- Zone I/O port type
+type ZoneIPort l s z a = (l s z, InsertPort z a)
+type ZoneDPort l s z a = (l s z, DeletePort z a)
 
--- Instances
-instance IZone [a] a Top where
-   add _ x xs = x:xs
-instance OZone [a] a Top where
-   view _ []       = NoView
-   view _ (x:xs)   = x:<<xs
-instance OZone z a p => OZone z a (Peek p) where
-   view (Peek p) xs = case view p xs of
-      NoView -> NoView
-      x:<<_  -> x:<<xs
+putPort :: (RecordMonadState s m l)
+        => ZoneIPort l s z a
+        -> a
+        -> m ()
+putPort (lens, ins) x = modify lens (ins x)
 
----------- Zone.hs-boot ----------
+takePort :: (RecordMonadState s m l)
+         => ZoneDPort l s z a
+         -> m (Maybe a)
+takePort (lens, del) = do
+   setRet `ifYouDo` gets lens del
+   where
+      setRet (x, xs) = do
+         set lens xs
+         return x
 
--- Construction
-fromList :: IZone z a p => p a -> [a] -> z -> z
-fromList p xs zero = foldr (add p) zero xs
+movePort :: (RecordMonadState s m l)
+         => ZoneDPort l s z1 a
+         -> ZoneIPort l s z2 a
+         -> m (Maybe a)
+movePort = movePortWith id
 
-toList :: OZone z a p => p a -> z -> ([a], z)
-toList p xs = span p (\_ -> True) xs
+movePortWith :: (RecordMonadState s m l)
+             => (a -> b)
+             -> ZoneDPort l s z1 a
+             -> ZoneIPort l s z2 b
+             -> m (Maybe b)
+movePortWith f op ip = putPortRet `ifYouDo` takePort op
+   where
+      putPortRet x = let y = f x in do
+         putPort ip y
+         return y
 
-span :: OZone z a p => p a -> (a -> Bool) -> z -> ([a], z)
-span p f xs = let (rr, z) = span' p f xs [] in (reverse rr, z)
+moveZone :: (RecordMonadState s m l)
+            => ZoneDPort l s z1 a
+            -> ZoneIPort l s z2 a
+            -> m [a]
+moveZone op ip = doWhile $ movePort op ip
 
-span' :: OZone z a p => p a -> (a -> Bool) -> z -> [a] -> ([a], z)
-span' p f xs r1 = case view p xs of
-   NoView  -> (r1, xs)
-   x:<<xs' -> span' p f xs' (x:r1)
-
-takeWhile :: OZone z a p => p a -> (a -> Bool) -> z -> [a]
-takeWhile p f xs = fst $ span p f xs
-
-dropWhile :: OZone z a p => p a -> (a -> Bool) -> z -> z
-dropWhile p f xs = snd $ span p f xs
-   
+moveZoneWith :: (RecordMonadState s m l)
+            => (a -> b)
+            -> ZoneDPort l s z1 a
+            -> ZoneIPort l s z2 b
+            -> m [b]
+moveZoneWith f op ip = doWhile $ movePortWith f op ip
 
 -- vim: set expandtab:

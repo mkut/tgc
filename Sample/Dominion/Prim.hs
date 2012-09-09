@@ -6,95 +6,165 @@ import Sample.Dominion.Base
 import TableGameCombinator.Core
 import TableGameCombinator.State
 import TableGameCombinator.Zone
-import TableGameCombinator.Zone.State
+import TableGameCombinator.Tag
 
 import System.Random.Shuffle
 import Control.Monad
 import Control.Applicative
 import qualified Data.MultiSet as MS
+import Data.Foldable (toList)
 
--- Action
-play :: DomDevice Dom => Card -> Dom Card
-play card = do
-   tell $ Play card
-   moveZone hand (select card) playField bottom
-   cardEffect card
-   return card
+-- Basic
+noAction :: Dom ()
+noAction = return ()
 
-playAction :: DomDevice Dom => Card -> Dom Card
-playAction card = plusAction (-1) *> play card
+plusCoin :: DomDevice Dom
+         => Int
+         -> Dom ()
+plusCoin n = modify coinCount (+n)
 
-buy :: DomDevice Dom => Card -> Dom Card
-buy card = do
-   tell $ Buy card
-   coinCount' <- get coinCount
-   plusBuy (-1)
-   plusCoin (-cardCost card)
-   gainCard card
+plusAction :: DomDevice Dom
+           => Int
+           -> Dom ()
+plusAction n = modify actionCount (+n)
 
-canBuy :: DomDevice Dom => Card -> Dom Bool
-canBuy card = (cardCost card <=) <$> get coinCount
+plusBuy :: DomDevice Dom
+        => Int
+        -> Dom ()
+plusBuy n = modify buyCount (+n)
 
-gainCard :: DomDevice Dom => Card -> Dom Card
-gainCard card = do
-   moveZone supply (select card) discardPile iAny
-   return card
+plusCard :: DomDevice Dom
+         => Int
+         -> Dom ()
+plusCard n = replicateM_ n draw
 
-gainBy :: DomDevice Dom => (Card -> Bool) -> Dom (Maybe Card)
-gainBy f = chooseBy cardName gainCard =<< filter f <$> gets supply MS.distinctElems
-
-gainUpTo :: DomDevice Dom => Int -> Dom (Maybe Card)
-gainUpTo coin = gainBy ((<=coin) . cardCost)
-
-draw :: DomDevice Dom => Dom (Maybe Card)
+-- Draw a card
+draw :: DomDevice Dom
+     => Dom (Maybe Card)
 draw = do
-   mcard <- moveZone deck top hand iAny
+   mcard <- movePort fromDeckTop toHand
    case mcard of
       Just card -> do
          tell $ Draw card
          return $ Just card
       Nothing   -> do
-         moveZoneAll discardPile oAny deck top
+         moveZone fromDiscardAny toDeckTop
          shuffleDeck
-         mcard' <- moveZone deck top hand iAny
+         mcard' <- movePort fromDeckTop toHand
          case mcard' of
             Just card -> do
                tell $ Draw card
                return $ Just card
             Nothing -> return Nothing
 
-trashCardFromHand :: DomDevice Dom => Card -> Dom Card
-trashCardFromHand card = do
+-- Play a card
+playTagged :: DomDevice Dom
+           => Tag
+           -> Dom (Maybe TCard)
+playTagged t = do
+   replicateM_ t $ tell "\t"
+   mtcard <- getTagged t playField
+   case mtcard of
+      Nothing   -> return Nothing
+      Just tcard -> do
+         tell $ Play (withoutTags tcard)
+         cardEffect (withoutTags tcard) t
+         return $ Just tcard
+
+playCard :: DomDevice Dom
+         => Tag
+         -> Card
+         -> Dom ()
+playCard = playCardN 1
+
+playCardN :: DomDevice Dom
+          => Int
+          -> Tag
+          -> Card
+          -> Dom ()
+playCardN n t card = do
+   movePortWith (tag t . withNoTags) (fromHand card) toPlay
+   replicateM_ n $ playTagged t
+   modify playField $ map (untag t)
+
+playAction :: DomDevice Dom
+           => Card
+           -> Dom ()
+playAction card = do
+   plusAction (-1)
+   playCard 0 card
+
+playMoney :: DomDevice Dom
+          => Card
+          -> Dom ()
+playMoney = playCard 0
+
+-- Trash a card
+trashFromHand :: DomDevice Dom
+              => Card
+              -> Dom ()
+trashFromHand card = do
+   movePort (fromHand card) toTrash
    tell $ Trash card
-   moveZone hand (select card) trashPile iAny
-   return card
 
-trashFromHand :: DomDevice Dom => Dom (Maybe Card)
-trashFromHand = trashFromHandBy $ \_ -> True
+trashTagged :: DomDevice Dom
+            => Tag
+            -> Dom (Maybe Card)
+trashTagged t = movePortWith withoutTags (fromPlayTagged t) toTrash
 
-trashFromHandBy :: DomDevice Dom => (Card -> Bool) -> Dom (Maybe Card)
-trashFromHandBy f = chooseBy cardName trashCardFromHand =<< filter f <$> gets hand MS.distinctElems
+-- Gain a card
+gainCard :: DomDevice Dom
+         => Card
+         -> Dom ()
+gainCard card = do
+   movePort (fromSupply card) toDiscard
+   tell $ Gain card
 
+buy :: DomDevice Dom
+    => Card -> Dom ()
+buy card = do
+   coinCount' <- get coinCount
+   plusBuy (-1)
+   plusCoin (-cardCost card)
+   gainCard card
+   tell $ Buy card
+
+-- Shuffle a deck
 shuffleDeck :: DomDevice Dom => Dom ()
 shuffleDeck = do
-   (d, zero) <- gets deck (toList top)
+   d <- get deck
    d' <- shuffleM d
-   set deck $ fromList top d' zero
-   tell $ "You shuffle your deck.\n"
+   set deck d'
+   tell $ Shuffle
 
-plusCoin :: Int -> Dom ()
-plusCoin n = modify coinCount (+n)
+-- Status
+canBuy :: DomDevice Dom
+       => Card
+       -> Dom Bool
+canBuy card = (cardCost card <=) <$> get coinCount
 
-plusAction :: Int -> Dom ()
-plusAction n = modify actionCount (+n)
+-- Options
+handOps :: Dom [Card]
+handOps = gets hand MS.distinctElems
 
-plusBuy :: Int -> Dom ()
-plusBuy n = modify buyCount (+n)
+supplyOps :: Dom [Card]
+supplyOps = gets supply MS.distinctElems
 
-plusCard :: DomDevice Dom => Int -> Dom ()
-plusCard n = replicateM_ n draw
+-- Choice
+chooseCard :: DomDevice Dom
+           => (Card -> Dom a)
+           -> [Card]
+           -> Dom (Maybe a)
+chooseCard = chooseBy cardName
 
--- IO (only) Action
+-- Function for card filters
+costUpTp :: Int -> Card -> Bool
+costUpTp x = (<=x) . cardCost
+
+withCardType :: CardType -> Card -> Bool
+withCardType t = (==t) . cardType
+
+-- IO (only)
 tellInfo :: DomDevice Dom => Dom ()
 tellInfo = tell =<< getAll
 

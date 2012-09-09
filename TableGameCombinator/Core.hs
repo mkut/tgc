@@ -11,6 +11,8 @@ module TableGameCombinator.Core
    , choose
    , chooseBy
    , doUntil
+   , doWhile
+   , keep
    ) where
 
 import Control.Monad
@@ -56,7 +58,7 @@ choose ops  = do
       Just proc -> Just <$> proc
       Nothing   -> choose ops
 
-chooseBy :: (Eq i, IDevice m i, ODevice m [i], Functor m) => (a -> i) -> (a -> m a) -> [a] -> m (Maybe a)
+chooseBy :: (Eq i, IDevice m i, ODevice m [i], Functor m) => (a -> i) -> (a -> m b) -> [a] -> m (Maybe b)
 chooseBy f g ops = choose $ zip (map f ops) (map g ops)
 
 doUntil :: Monad m => m (Maybe a) -> m a
@@ -65,5 +67,17 @@ doUntil proc = do
    case x of
       Just x' -> return x'
       Nothing -> doUntil proc
+
+doWhile :: Monad m => m (Maybe a) -> m [a]
+doWhile proc = do
+   mx <- proc
+   case mx of
+      Just x  -> liftM (x:) $ doWhile proc
+      Nothing -> return []
+
+keep :: Monad m => (a -> m b) -> a -> m a
+keep f x = do
+   f x
+   return x
 
 -- vim: set expandtab:

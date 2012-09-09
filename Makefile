@@ -7,15 +7,14 @@
 
 ## project settings
 TARGET = main
+SOURCES_BOOT =
 SOURCES = \
 	Main.hs \
 	TableGameCombinator/Core.hs \
 	TableGameCombinator/Phase.hs \
 	TableGameCombinator/State.hs \
 	TableGameCombinator/Zone.hs \
-	TableGameCombinator/Zone/State.hs \
-	TableGameCombinator/Zone/Sequence.hs \
-	TableGameCombinator/Zone/MultiSet.hs \
+	TableGameCombinator/Tag.hs \
 	Sample/Dominion.hs \
 	Sample/Dominion/Base.hs \
 	Sample/Dominion/Phase.hs \
@@ -32,7 +31,7 @@ HCFLAGS = --make -O
 MILIB_DIR = /home/mkut/milib/haskell
 
 ## file name macros
-OBJS = $(SOURCES:%.hs=%.hi) $(SOURCES:%.hs=%.o)
+OBJS = $(SOURCES:%.hs=%.hi) $(SOURCES:%.hs=%.o) $(SOURCES_BOOT:%.hs-boot=%.hi-boot) $(SOURCES_BOOT:%.hs-boot=%.o-boot)
 MILIB_SRC = $(MILIBS:%=$(MILIB_DIR)/%.hs)
 
 ## make rules
@@ -40,8 +39,8 @@ MILIB_SRC = $(MILIBS:%=$(MILIB_DIR)/%.hs)
 
 default: $(TARGET)
 
-$(TARGET): $(SOURCES) $(MILIB_SRC)
-	$(HC) $(HCFLAGS) -o $@ $^
+$(TARGET): $(SOURCES) $(SOURCES_BOOT) $(MILIB_SRC)
+	$(HC) $(HCFLAGS) -o $@ $(SOURCES) $(MILIB_SRC)
 	rm $(OBJS)
 
 clean:
