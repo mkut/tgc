@@ -19,6 +19,12 @@ import qualified Data.MultiSet as MS
 import Data.Sequence (ViewL (..), ViewR (..), (<|), (|>))
 import qualified Data.Traversable as Trav
 
+-- runProcess
+runProcess :: Dom () -> IO ()
+runProcess proc = do
+   S.evalStateT proc initialState
+
+-- I/O Device instances
 instance DomDevice Dom
 
 instance IDevice Dom String where
@@ -69,6 +75,8 @@ instance ODevice Dom DominionState where
          buy        =           L.get buyCount    st
          played     =           L.get playField   st
          hand'      =           L.get hand        st
+instance ODevice Dom DomPhase where
+   tell x = tell $ whiteColor ++ "=== " ++ show x ++ " ===" ++ defaultColor ++ "\n"
 instance ODevice Dom Log where
    tell (Draw    card) = tell $ "You draw a "    ++ show card ++ ".\n"
    tell (Discard card) = tell $ "You discard a " ++ show card ++ ".\n"
@@ -77,22 +85,26 @@ instance ODevice Dom Log where
    tell (Buy     card) = tell $ "You buy a "     ++ show card ++ ".\n"
    tell (Gain    card) = tell $ "You gain a "    ++ show card ++ ".\n"
    tell Shuffle        = tell $ "You shuffle your deck.\n"
+instance ODevice Dom Int where
+   tell x = tell $ show x ++ "\n"
 
-colorStringOfCardType :: CardType -> String
-colorStringOfCardType Treasure = "\ESC[1;33m"
-colorStringOfCardType Victory  = "\ESC[1;32m"
-colorStringOfCardType Action   = "\ESC[1;37m"
-colorStringOfCardType Curse    = "\ESC[1;35m"
-
+-- Show Card instance
 instance Show Card where
    show x =  colorStringOfCardType (cardType x)
           ++ cardName x
-          ++ colorDefault
-      where
-         colorDefault  = "\ESC[1;m"
+          ++ defaultColor
 
-runProcess :: Dom () -> IO ()
-runProcess proc = do
-   S.evalStateT proc initialState
+colorStringOfCardType :: CardType -> String
+colorStringOfCardType Treasure = yellowColor
+colorStringOfCardType Victory  = greenColor
+colorStringOfCardType Action   = whiteColor
+colorStringOfCardType Curse    = purpleColor
+
+-- Terminal color
+yellowColor  = "\ESC[1;33m"
+whiteColor   = "\ESC[1;37m"
+greenColor   = "\ESC[1;32m"
+purpleColor  = "\ESC[1;35m"
+defaultColor = "\ESC[1;m"
 
 -- vim: set expandtab:

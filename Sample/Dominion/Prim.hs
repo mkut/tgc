@@ -13,11 +13,12 @@ import System.Random.Shuffle
 import Control.Monad
 import Control.Applicative
 import qualified Data.MultiSet as MS
-import Data.Foldable (toList)
+import Data.Maybe
+import Data.List
 
 -- Basic
-noAction :: Dom ()
-noAction = return ()
+noAction :: Tag -> Dom ()
+noAction _ = return ()
 
 plusCoin :: DomDevice Dom
          => Int
@@ -38,6 +39,14 @@ plusCard :: DomDevice Dom
          => Int
          -> Dom ()
 plusCard n = replicateM_ n draw
+
+-- Cost
+cost :: Int -> Dom Int
+cost x = return x
+
+-- Victory point
+point :: Int -> MS.MultiSet Card -> Int
+point x _ = x
 
 -- Draw a card
 draw :: DomDevice Dom
@@ -131,9 +140,9 @@ buy :: DomDevice Dom
     => Card -> Dom ()
 buy card = do
    tell $ Buy card
-   coinCount' <- get coinCount
    plusBuy (-1)
-   plusCoin (-cardCost card)
+   cost <- cardCost card
+   plusCoin (-cost)
    void $ gainCard card
 
 gainCardToHand :: DomDevice Dom
@@ -162,7 +171,7 @@ cleanUp = do
 canBuy :: DomDevice Dom
        => Card
        -> Dom Bool
-canBuy card = (cardCost card <=) <$> get coinCount
+canBuy card = liftM2 (<=) (cardCost card) (get coinCount)
 
 -- Options
 handOps :: Dom [Card]
@@ -179,11 +188,30 @@ chooseCard :: DomDevice Dom
 chooseCard = chooseBy cardName
 
 -- Function for card filters
-costUpTp :: Int -> Card -> Bool
-costUpTp x = (<=x) . cardCost
+costUpTo :: Int -> Card -> Dom Bool
+costUpTo x card = (<=x) <$> cardCost card
+
+costUpToDiff :: Card -> Int -> Card -> Dom Bool
+costUpToDiff card' x card = flip costUpTo card . (+x) =<< cardCost card'
 
 withCardType :: CardType -> Card -> Bool
 withCardType t = (==t) . cardType
+
+-- Finalize
+finished :: Dom Bool
+finished = do
+   flag1 <- isNothing . find ((=="Province") . cardName) <$> gets supply MS.distinctElems
+   flag2 <- (<=14) . length <$> gets supply MS.distinctElems
+   return (flag1 || flag2)
+
+countScore :: Dom Int
+countScore = do
+   moveZone fromDeckTop toHand
+   moveZoneWith withoutTags fromPlay toHand
+   moveZone fromDiscardAny toHand
+   moveZone fromAsideAny toHand
+   d <- get hand
+   return $ sum $ map cardVP (MS.elems d) <*> [d]
 
 -- IO (only)
 tellInfo :: DomDevice Dom => Dom ()

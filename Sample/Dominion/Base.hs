@@ -33,8 +33,8 @@ data CardType = Treasure
 data Card = Card
    { cardName   :: String
    , cardType   :: CardType
-   , cardCost   :: Int
-   , cardVP     :: Int
+   , cardCost   :: Dom Int
+   , cardVP     :: MultiSet Card -> Int
    , cardEffect :: Int -> Dom ()
    }
 instance Eq Card where
@@ -99,6 +99,8 @@ class ( IDevice m String
       , ODevice m [String]
       , ODevice m DominionState
       , ODevice m Log
+      , ODevice m DomPhase
+      , ODevice m Int -- for score
       )
       => DomDevice m where
 

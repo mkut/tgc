@@ -14,8 +14,6 @@ import TableGameCombinator.Phase.Enum
 
 import Control.Monad
 import Control.Applicative
-import Data.List
-import Data.Maybe
 import qualified Data.MultiSet as MS
 
 instance DomDevice Dom => EnumPhase Dom DomPhase where
@@ -86,10 +84,10 @@ showInfo :: DomDevice Dom
 showInfo = ("ls", tellInfo *> return Nothing)
 
 -- Checking flags
-checkFinished :: Dom Bool
+checkFinished :: DomDevice Dom => Dom Bool
 checkFinished = do
-   flag1 <- isNothing . find ((=="Province") . cardName) <$> gets supply MS.distinctElems
-   flag2 <- (<=14) . length <$> gets supply MS.distinctElems
-   return (flag1 || flag2)
+   fin <- finished
+   when fin $ tell =<< countScore
+   return fin
 
 -- vim: set expandtab:
