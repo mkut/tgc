@@ -49,7 +49,7 @@ data DomPhase = ActionPhase
               | MoneyPhase
               | BuyPhase
               | CleanUpPhase
-              deriving (Show, Eq)
+              deriving (Show, Eq, Enum)
 
 -- GameState
 data DominionState = DS

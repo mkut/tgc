@@ -5,6 +5,7 @@ import Sample.Dominion.Base
 import Sample.Dominion.Prim
 
 import TableGameCombinator.Core
+import TableGameCombinator.Choice
 import TableGameCombinator.State
 import TableGameCombinator.Tag
 import TableGameCombinator.Zone

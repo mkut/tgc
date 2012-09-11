@@ -4,6 +4,7 @@ module Sample.Dominion.Prim where
 import Sample.Dominion.Base
 
 import TableGameCombinator.Core
+import TableGameCombinator.Choice
 import TableGameCombinator.State
 import TableGameCombinator.Zone
 import TableGameCombinator.Tag
@@ -149,6 +150,13 @@ shuffleDeck = do
    d <- get deck
    d' <- shuffleM d
    set deck d'
+
+-- Clean up
+cleanUp :: DomDevice Dom => Dom ()
+cleanUp = do
+   moveZone fromHandAny toDiscard
+   moveZoneWith withoutTags fromPlay toDiscard
+   return ()
 
 -- Status
 canBuy :: DomDevice Dom

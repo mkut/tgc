@@ -11,7 +11,9 @@ SOURCES_BOOT =
 SOURCES = \
 	Main.hs \
 	TableGameCombinator/Core.hs \
+	TableGameCombinator/Choice.hs \
 	TableGameCombinator/Phase.hs \
+	TableGameCombinator/Phase/Enum.hs \
 	TableGameCombinator/State.hs \
 	TableGameCombinator/Zone.hs \
 	TableGameCombinator/Tag.hs \
