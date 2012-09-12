@@ -152,7 +152,7 @@ chancellor = Card
    (point 0)
    (wt $ plusCoin 2 *> may msg (moveZone fromDeckTop toDiscard))
    where
-      msg = "put your deck into your discard pile? [yes/no]" 
+      msg = "Put your deck into your discard pile? [yes/no]" 
 feast :: DomDevice Dom => Card
 feast = Card
    "Feast"
@@ -186,10 +186,11 @@ library = Card
                   Nothing   -> return Nothing
                   Just card -> if withCardType Action card
                      then do
-                        may "put aside this card?[yes/no]" $ movePort (fromHand card) toAside
+                        may msg $ movePort (fromHand card) toAside
                         return mcard
                      else return mcard
             else return Nothing
+      msg = "Put aside this card? [yes/no]"
 cellor :: DomDevice Dom => Card
 cellor = Card
    "Cellor"
@@ -206,9 +207,87 @@ gardens = Card
    (cost 4)
    ((`div`10) . MS.size)
    noAction
+thief :: DomDevice Dom => Card
+thief = Card
+   "Thief"
+   Action
+   (cost 4)
+   (point 0)
+   noAction
+adventurer :: DomDevice Dom => Card
+adventurer = Card
+   "Adventurer"
+   Action
+   (cost 6)
+   (point 0)
+   (wt $ doUntil reveal *> doUntil reveal *> toHandDiscard)
+   where
+      reveal = do
+         revealDeckTop
+         mcard <- movePort fromDeckTop toAside
+         case mcard of
+            Nothing   -> return $ Just ()
+            Just card -> do
+               if withCardType Treasure card
+                  then return $ Just ()
+                  else return Nothing
+      toHandDiscard = do
+         moveZone (fromAsideBy $ withCardType Treasure) toHand
+         moveZone fromAsideAny toDiscard
+moat :: DomDevice Dom => Card
+moat = Card
+   "Moat"
+   Action
+   (cost 2)
+   (point 0)
+   (wt $ plusCard 2)
+witch :: DomDevice Dom => Card
+witch = Card
+   "Witch"
+   Action
+   (cost 5)
+   (point 0)
+   (wt $ plusCard 2)
+spy :: DomDevice Dom => Card
+spy = Card
+   "Spy"
+   Action
+   (cost 4)
+   (point 0)
+   (wt $ plusCard 1 *> plusAction 1 *> (wt $ may msg (movePort fromDeckTop toDiscard)) `ifYouDo` revealDeckTop)
+   where
+      msg = "Discard this card? [yes/no]"
+milita :: DomDevice Dom => Card
+milita = Card
+   "Milita"
+   Action
+   (cost 4)
+   (point 0)
+   (wt $ plusCoin 2)
+village :: DomDevice Dom => Card
+village = Card
+   "Village"
+   Action
+   (cost 3)
+   (point 0)
+   (wt $ plusCard 1 *> plusAction 2)
+bureaucrat :: DomDevice Dom => Card
+bureaucrat = Card
+   "Bureaucrat"
+   Action
+   (cost 4)
+   (point 0)
+   (wt $ movePort (fromSupply silver) toDeckTop)
+chapel :: DomDevice Dom => Card
+chapel = Card
+   "Chapel"
+   Action
+   (cost 2)
+   (point 0)
+   (wt $ mapM trashFromHand =<< (doUntilBy ((<=4) . length) $ selectSomeBy cardName =<< gets hand MS.elems))
 
 -- utils
-wt :: Dom a -> Int -> Dom ()
+wt :: Dom a -> b -> Dom ()
 wt x y = void x
 
 -- vim: set expandtab:

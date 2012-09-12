@@ -87,6 +87,7 @@ data Log = Draw Card
          | Discard Card
          | Trash Card
          | Play Card
+         | Reveal Card
          | Buy Card
          | Gain Card
          | Shuffle
@@ -118,6 +119,11 @@ msDeletePortAny :: Ord a => DeletePort (MultiSet a) a
 msDeletePortAny z = if MS.null z
    then Nothing
    else msDeletePort (head $ MS.distinctElems z) z
+
+msDeletePortBy :: Ord a => (a -> Bool) -> DeletePort (MultiSet a) a
+msDeletePortBy f z = case List.find f $ MS.distinctElems z of
+   Nothing -> Nothing
+   Just x -> msDeletePort x z
 
 toDeckTop :: DomIPort [] Card
 toDeckTop = (deck, (:))
@@ -157,5 +163,7 @@ toAside :: DomIPort MultiSet Card
 toAside = (aside, MS.insert)
 fromAsideAny :: DomDPort MultiSet Card
 fromAsideAny = (aside, msDeletePortAny)
+fromAsideBy :: (Card -> Bool) -> DomDPort MultiSet Card
+fromAsideBy f = (aside, msDeletePortBy f)
 
 -- vim: set expandtab:

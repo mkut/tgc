@@ -58,14 +58,30 @@ draw = do
          tell $ Draw card
          return $ Just card
       Nothing   -> do
-         moveZone fromDiscardAny toDeckTop
-         shuffleDeck
+         remakeDeck
          mcard' <- movePort fromDeckTop toHand
          case mcard' of
             Just card -> do
                tell $ Draw card
                return $ Just card
             Nothing -> return Nothing
+
+revealDeckTop :: DomDevice Dom
+              => Dom (Maybe Card)
+revealDeckTop = do
+   d <- get deck
+   when (null d) remakeDeck
+   d' <- get deck
+   if null d'
+      then return Nothing
+      else do
+         tell $ Reveal $ head d'
+         return $ Just $ head d'
+
+remakeDeck :: DomDevice Dom => Dom ()
+remakeDeck = do
+   moveZone fromDiscardAny toDeckTop
+   shuffleDeck
 
 discard :: DomDevice Dom
         => Card

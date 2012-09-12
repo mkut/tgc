@@ -43,7 +43,6 @@ default: $(TARGET)
 
 $(TARGET): $(SOURCES) $(SOURCES_BOOT) $(MILIB_SRC)
 	$(HC) $(HCFLAGS) -o $@ $(SOURCES) $(MILIB_SRC)
-	rm $(OBJS)
 
 clean:
 	rm -f $(TARGET) $(OBJS)

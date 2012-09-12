@@ -82,6 +82,7 @@ instance ODevice Dom Log where
    tell (Discard card) = tell $ "You discard a " ++ show card ++ ".\n"
    tell (Trash   card) = tell $ "You trash a "   ++ show card ++ ".\n"
    tell (Play    card) = tell $ "You play a "    ++ show card ++ ".\n"
+   tell (Reveal  card) = tell $ "You reveal a "  ++ show card ++ ".\n"
    tell (Buy     card) = tell $ "You buy a "     ++ show card ++ ".\n"
    tell (Gain    card) = tell $ "You gain a "    ++ show card ++ ".\n"
    tell Shuffle        = tell $ "You shuffle your deck.\n"

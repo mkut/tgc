@@ -59,6 +59,15 @@ initialize = do
          , library
          , cellor
          , gardens
+         -- , thief
+         , adventurer
+         , moat
+         , witch
+         , spy
+         , milita
+         , village
+         , bureaucrat
+         , chapel
          ]
 
 -- vim: set expandtab:

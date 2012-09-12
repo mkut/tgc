@@ -6,6 +6,9 @@ module TableGameCombinator.Choice
    , chooseBy'
    , chooseSome
    , chooseSomeBy
+
+   , select
+   , selectSomeBy
    ) where
 
 import TableGameCombinator.Core
@@ -62,5 +65,27 @@ chooseSome ops = do
 
 chooseSomeBy :: (Eq i, IDevice m [i], ODevice m [i], Functor m) => (a -> i) -> (a -> m b) -> [a] -> m [b]
 chooseSomeBy f g ops = chooseSome $ zip (map f ops) (map g ops)
+
+select :: (Eq i, IDevice m i, ODevice m [i], Functor m)
+       => [i]
+       -> m (Maybe i)
+select ops  = choose $ map (\op -> (op, return op)) ops
+
+selectBy :: (Eq i, IDevice m i, ODevice m [i], Functor m)
+         => (a -> i)
+         -> [a]
+         -> m (Maybe a)
+selectBy f ops = chooseBy f return ops
+
+selectSome :: (Eq i, IDevice m [i], ODevice m [i], Functor m)
+           => [i]
+           -> m [i]
+selectSome ops = chooseSome $ map (\op -> (op, return op)) ops
+
+selectSomeBy :: (Eq i, IDevice m [i], ODevice m [i], Functor m)
+             => (a -> i)
+             -> [a]
+             -> m [a]
+selectSomeBy f ops = chooseSomeBy f return ops
 
 -- vim: set expandtab:

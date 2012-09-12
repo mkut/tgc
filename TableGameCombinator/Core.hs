@@ -9,6 +9,7 @@ module TableGameCombinator.Core
    , ifYouDo
    , ifYouDont
    , doUntil
+   , doUntilBy
    , doWhile
    , keep
    
@@ -51,6 +52,11 @@ doUntil proc = do
    case x of
       Just x' -> return x'
       Nothing -> doUntil proc
+
+doUntilBy :: Monad m => (a -> Bool) -> m a -> m a
+doUntilBy f proc = do
+   x <- proc
+   if f x then return x else doUntilBy f proc
 
 doWhile :: Monad m => m (Maybe a) -> m [a]
 doWhile proc = do
