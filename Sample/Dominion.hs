@@ -7,28 +7,42 @@ module Sample.Dominion
 
 import Sample.Dominion.Base
 import Sample.Dominion.Phase
+import Sample.Dominion.Prim
 import Sample.Dominion.CardData
 
 import TableGameCombinator.Core
 import TableGameCombinator.State
 import TableGameCombinator.Phase
 import TableGameCombinator.Tag
+import TableGameCombinator.Player
 
 import System.Random.Shuffle
 import Control.Applicative
+import Control.Monad
+import Control.Monad.Reader
+import Data.Array
 import qualified Data.Label as L
 import qualified Data.MultiSet as MS
 
-main :: DomDevice Dom => Dom ()
+main :: DomDevice MyDom => Dom ()
 main = do
    initialize
-   phaseController CleanUpPhase
+   phaseController (ActionPhase, Player1)
 
-initialize :: DomDevice Dom => Dom ()
+initialize :: DomDevice MyDom => Dom ()
 initialize = do
+   set deck        $ listArray (Player1, Player2) $ repeat []
+   set hand        $ listArray (Player1, Player2) $ repeat MS.empty
+   set playField   $ listArray (Player1, Player2) $ repeat []
+   set discardPile $ listArray (Player1, Player2) $ repeat MS.empty
+   set actionCount $ listArray (Player1, Player2) $ repeat 0
+   set coinCount   $ listArray (Player1, Player2) $ repeat 0
+   set buyCount    $ listArray (Player1, Player2) $ repeat 0
    custom <- take 10 <$> shuffleM customSupply
    set supply $ MS.fromOccurList $ defaultSupply ++ map (,10) custom
-   set discardPile initialDeck
+   forM_ [Player1 ..] $ runReaderT $ do
+      set discardPile' initialDeck
+      plusCard 5
    where
       initialDeck = MS.fromOccurList
          [ (copper, 7)

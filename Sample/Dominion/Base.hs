@@ -2,20 +2,30 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Sample.Dominion.Base where
    
 import TableGameCombinator.Core
 import TableGameCombinator.State
 import TableGameCombinator.Zone
 import TableGameCombinator.Tag
+import TableGameCombinator.Player (PlayerLens)
+import qualified TableGameCombinator.Player as P
 
 import System.IO
 import Control.Applicative
+import Control.Monad
+import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.State.Class (MonadState)
 import Control.Monad.State.Lazy (StateT)
 import qualified Control.Monad.State.Lazy as S
+import Control.Monad.Trans.Class
 import qualified Data.List as List
-import Data.Label (mkLabelsMono, Lens)
+import Data.Array
+import Data.Label (mkLabelsMono, Lens, (:->))
 import qualified Data.Label as L
 import Data.MultiSet (MultiSet)
 import qualified Data.MultiSet as MS
@@ -23,6 +33,7 @@ import qualified Data.Foldable as Fold (Foldable, toList)
 
 -- Game Monad
 type Dom = StateT DominionState IO
+type MyDom = ReaderT Player Dom
 
 -- Card
 data CardType = Treasure
@@ -35,7 +46,7 @@ data Card = Card
    , cardType   :: CardType
    , cardCost   :: Dom Int
    , cardVP     :: MultiSet Card -> Int
-   , cardEffect :: Int -> Dom ()
+   , cardEffect :: Int -> MyDom ()
    }
 instance Eq Card where
    x == y = cardName x == cardName y
@@ -51,36 +62,77 @@ data DomPhase = ActionPhase
               | CleanUpPhase
               deriving (Show, Eq, Enum)
 
+-- Type
+data Player = Player1
+            | Player2
+            deriving (Eq, Ord, Enum, Show, Ix)
+
 -- GameState
 data DominionState = DS
-   { _phase       :: DomPhase
-   , _deck        :: [Card]
-   , _hand        :: MultiSet Card
-   , _playField   :: [TCard]
-   , _discardPile :: MultiSet Card
-   , _trashPile   :: MultiSet Card
-   , _supply      :: MultiSet Card
-   , _aside      :: MultiSet Card
-   , _actionCount :: Int
-   , _coinCount   :: Int
-   , _buyCount    :: Int
+   { _activePlayer :: Player
+   , _phase        :: DomPhase
+   , _deck         :: Array Player [Card]
+   , _hand         :: Array Player (MultiSet Card)
+   , _playField    :: Array Player [TCard]
+   , _discardPile  :: Array Player (MultiSet Card)
+   , _trashPile    :: MultiSet Card
+   , _supply       :: MultiSet Card
+   , _aside        :: MultiSet Card
+   , _actionCount  :: Array Player Int
+   , _coinCount    :: Array Player Int
+   , _buyCount     :: Array Player Int
    }
 mkLabelsMono [''DominionState]
 
 initialState :: DominionState
 initialState = DS
-   { _phase       = ActionPhase
-   , _deck        = []
-   , _hand        = MS.empty
-   , _playField   = []
-   , _discardPile = MS.empty
-   , _trashPile   = MS.empty
-   , _supply      = MS.empty
-   , _aside       = MS.empty
-   , _actionCount = 0
-   , _coinCount   = 0
-   , _buyCount    = 0
+   { _activePlayer = Player1
+   , _phase        = ActionPhase
+   , _deck         = array (Player1, Player2) []
+   , _hand         = array (Player1, Player2) []
+   , _playField    = array (Player1, Player2) []
+   , _discardPile  = array (Player1, Player2) []
+   , _trashPile    = MS.empty
+   , _supply       = MS.empty
+   , _aside        = MS.empty
+   , _actionCount  = array (Player1, Player2) []
+   , _coinCount    = array (Player1, Player2) []
+   , _buyCount     = array (Player1, Player2) []
    }
+
+-- PlayerLens
+phase' :: PlayerLens Player DominionState DomPhase
+phase' = P.fromLens phase
+
+deck' :: PlayerLens Player DominionState [Card]
+deck' = P.fromArrayLens deck
+
+hand' :: PlayerLens Player DominionState (MultiSet Card)
+hand' = P.fromArrayLens hand
+
+playField' :: PlayerLens Player DominionState [TCard]
+playField' = P.fromArrayLens playField
+
+discardPile' :: PlayerLens Player DominionState (MultiSet Card)
+discardPile' = P.fromArrayLens discardPile
+
+trashPile' :: PlayerLens Player DominionState (MultiSet Card)
+trashPile' = P.fromLens trashPile
+
+supply' :: PlayerLens Player DominionState (MultiSet Card)
+supply' = P.fromLens supply
+
+aside' :: PlayerLens Player DominionState (MultiSet Card)
+aside' = P.fromLens aside
+
+actionCount' :: PlayerLens Player DominionState Int
+actionCount' = P.fromArrayLens actionCount
+
+coinCount' :: PlayerLens Player DominionState Int
+coinCount' = P.fromArrayLens coinCount
+
+buyCount' :: PlayerLens Player DominionState Int
+buyCount' = P.fromArrayLens buyCount
 
 -- Log
 data Log = Draw Card
@@ -100,14 +152,23 @@ class ( IDevice m String
       , ODevice m [String]
       , ODevice m DominionState
       , ODevice m Log
-      , ODevice m DomPhase
+      , ODevice m (DomPhase, Player)
       , ODevice m Int -- for score
       )
       => DomDevice m where
 
+tellAll :: (RecordMonadState DominionState m (Lens (->)), ODevice (ReaderT Player m) o) => o -> m ()
+tellAll x = do
+   forM_ [Player1 ..] $ runReaderT (tell x)
+
+instance ODevice MyDom o => ODevice Dom o where
+   tell = tellAll
+
 -- Zone Port
 type DomIPort z a = ZoneIPort (Lens (->)) DominionState (z a) a
 type DomDPort z a = ZoneDPort (Lens (->)) DominionState (z a) a
+type MyDomIPort z a = ZoneIPort (PlayerLens Player) DominionState (z a) a
+type MyDomDPort z a = ZoneDPort (PlayerLens Player) DominionState (z a) a
 
 msDeletePort :: Ord a => a -> DeletePort (MultiSet a) a
 msDeletePort x = deletePort f g
@@ -125,45 +186,45 @@ msDeletePortBy f z = case List.find f $ MS.distinctElems z of
    Nothing -> Nothing
    Just x -> msDeletePort x z
 
-toDeckTop :: DomIPort [] Card
-toDeckTop = (deck, (:))
-fromDeckTop :: DomDPort [] Card
-fromDeckTop = (deck, listDeletePort)
+toDeckTop :: MyDomIPort [] Card
+toDeckTop = (deck', (:))
+fromDeckTop :: MyDomDPort [] Card
+fromDeckTop = (deck', listDeletePort)
 
-toHand :: DomIPort MultiSet Card
-toHand = (hand, MS.insert)
-fromHand :: Card -> DomDPort MultiSet Card
-fromHand c = (hand, msDeletePort c)
-fromHandAny :: DomDPort MultiSet Card
-fromHandAny = (hand, msDeletePortAny)
+toHand :: MyDomIPort MultiSet Card
+toHand = (hand', MS.insert)
+fromHand :: Card -> MyDomDPort MultiSet Card
+fromHand c = (hand', msDeletePort c)
+fromHandAny :: MyDomDPort MultiSet Card
+fromHandAny = (hand', msDeletePortAny)
 
-toPlay :: DomIPort [] TCard
-toPlay = (playField, (:))
-fromPlay :: DomDPort [] TCard
-fromPlay = (playField, listDeletePort)
-fromPlayTagged :: Tag -> DomDPort [] TCard
-fromPlayTagged t = (playField, dp)
+toPlay :: MyDomIPort [] TCard
+toPlay = (playField', (:))
+fromPlay :: MyDomDPort [] TCard
+fromPlay = (playField', listDeletePort)
+fromPlayTagged :: Tag -> MyDomDPort [] TCard
+fromPlayTagged t = (playField', dp)
    where
       dp z = case List.find (tagged t) z of
          Nothing -> Nothing
          Just x  -> Just (x, List.delete x z)
 
-toDiscard :: DomIPort MultiSet Card
-toDiscard = (discardPile, MS.insert)
-fromDiscardAny :: DomDPort MultiSet Card
-fromDiscardAny = (discardPile, msDeletePortAny)
+toDiscard :: MyDomIPort MultiSet Card
+toDiscard = (discardPile', MS.insert)
+fromDiscardAny :: MyDomDPort MultiSet Card
+fromDiscardAny = (discardPile', msDeletePortAny)
 
-toTrash :: DomIPort MultiSet Card
-toTrash = (trashPile, MS.insert)
+toTrash :: MyDomIPort MultiSet Card
+toTrash = (trashPile', MS.insert)
 
-fromSupply :: Card -> DomDPort MultiSet Card
-fromSupply c = (supply, msDeletePort c)
+fromSupply :: Card -> MyDomDPort MultiSet Card
+fromSupply c = (supply', msDeletePort c)
 
-toAside :: DomIPort MultiSet Card
-toAside = (aside, MS.insert)
-fromAsideAny :: DomDPort MultiSet Card
-fromAsideAny = (aside, msDeletePortAny)
-fromAsideBy :: (Card -> Bool) -> DomDPort MultiSet Card
-fromAsideBy f = (aside, msDeletePortBy f)
+toAside :: MyDomIPort MultiSet Card
+toAside = (aside', MS.insert)
+fromAsideAny :: MyDomDPort MultiSet Card
+fromAsideAny = (aside', msDeletePortAny)
+fromAsideBy :: (Card -> Bool) -> MyDomDPort MultiSet Card
+fromAsideBy f = (aside', msDeletePortBy f)
 
 -- vim: set expandtab:

@@ -6,15 +6,19 @@ module Sample.Dominion.IOImpl.Console where
 import Sample.Dominion.Base
 
 import TableGameCombinator.Core
+import TableGameCombinator.Tag
+import TableGameCombinator.Player
 
 import System.IO
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
-import Control.Applicative
+import qualified Control.Monad.Reader as R
 import qualified Control.Monad.State.Lazy as S
 import qualified Data.Label as L
 import Data.List
 import Data.List.Split
+import Data.Array
 import qualified Data.MultiSet as MS
 import Data.Sequence (ViewL (..), ViewR (..), (<|), (|>))
 import qualified Data.Traversable as Trav
@@ -25,28 +29,37 @@ runProcess proc = do
    S.evalStateT proc initialState
 
 -- I/O Device instances
-instance DomDevice Dom
+instance DomDevice MyDom
 
-instance IDevice Dom String where
-   ask = lift getLine
-instance IDevice Dom [String] where
+instance IDevice MyDom String where
+   ask = lift $ lift getLine
+instance IDevice MyDom [String] where
    ask = filter (/="") . splitOneOf "," <$> ask
-instance IDevice Dom YesNoInput where
+instance IDevice MyDom YesNoInput where
    ask = do
       str <- ask
       case str of
          "yes" -> return Yes
          "no"  -> return No
          _     -> ask
-instance ODevice Dom String where
-   tell x = lift $ do { putStr x; hFlush stdout }
-instance ODevice Dom [String] where
+instance ODevice MyDom String where
+   tell x = lift $ lift $ do { putStr x; hFlush stdout }
+instance ODevice MyDom [String] where
    tell = tell . (++"]\n") . ("["++) . intercalate "/"
-instance ODevice Dom DominionState where
+instance ODevice MyDom DominionState where
    tell st = do
+      pl <- R.ask
+      let supp       =                           L.get supply       st
+          deckLen    = length          . (!pl) $ L.get deck         st
+          discardLen = MS.size         . (!pl) $ L.get discardPile  st
+          coin       =                           L.get coinCount    st
+          action     =                           L.get actionCount  st
+          buy        =                           L.get buyCount     st
+          played     = map withoutTags . (!pl) $ L.get playField    st
+          h          =                   (!pl) $ L.get hand         st
       tell $ replicate 60 '=' ++ "\n"
       tell $ "Supply "
-      forM_ (zip [0..] $ MS.toOccurList supply') $ \(i, (x, n)) -> do
+      forM_ (zip [0..] $ MS.toOccurList supp) $ \(i, (x, n)) -> do
          when (i `mod` 5 == 0 && i /= 0) $ tell "\n       "
          tell $ show n ++ " " ++ show x ++ "     "
       tell "\n"
@@ -61,33 +74,44 @@ instance ODevice Dom DominionState where
       tell "\n"
       tell $ replicate 60 '-' ++ "\n"
       tell $ "Hand   "
-      forM_ (zip [0..] $ MS.toList hand') $ \(i, x) -> do
+      forM_ (zip [0..] $ MS.toList h) $ \(i, x) -> do
          when (i `mod` 5 == 0 && i /= 0) $ tell "\n       "
          tell $ show x ++ "     "
       tell "\n"
       tell $ replicate 60 '=' ++ "\n"
-      where
-         supply'    =           L.get supply      st
-         deckLen    = length  $ L.get deck        st
-         discardLen = MS.size $ L.get discardPile st
-         coin       =           L.get coinCount   st
-         action     =           L.get actionCount st
-         buy        =           L.get buyCount    st
-         played     =           L.get playField   st
-         hand'      =           L.get hand        st
-instance ODevice Dom DomPhase where
-   tell x = tell $ whiteColor ++ "=== " ++ show x ++ " ===" ++ defaultColor ++ "\n"
-instance ODevice Dom Log where
-   tell (Draw    card) = tell $ "You draw a "    ++ show card ++ ".\n"
-   tell (Discard card) = tell $ "You discard a " ++ show card ++ ".\n"
-   tell (Trash   card) = tell $ "You trash a "   ++ show card ++ ".\n"
-   tell (Play    card) = tell $ "You play a "    ++ show card ++ ".\n"
-   tell (Reveal  card) = tell $ "You reveal a "  ++ show card ++ ".\n"
-   tell (Buy     card) = tell $ "You buy a "     ++ show card ++ ".\n"
-   tell (Gain    card) = tell $ "You gain a "    ++ show card ++ ".\n"
-   tell Shuffle        = tell $ "You shuffle your deck.\n"
-instance ODevice Dom Int where
+instance ODevice MyDom (DomPhase, Player) where
+   tell (ph, pl) = tell $ whiteColor ++ "=== " ++ show pl ++ ":" ++ show ph ++ " ===" ++ defaultColor ++ "\n"
+instance ODevice MyDom Log where
+   tell (Draw    card) = do
+      pl <- R.ask
+      tell $ playerName pl ++ " draw a "    ++ show card ++ ".\n"
+   tell (Discard card) = do
+      pl <- R.ask
+      tell $ playerName pl ++ " discard a " ++ show card ++ ".\n"
+   tell (Trash   card) = do
+      pl <- R.ask
+      tell $ playerName pl ++ " trash a "   ++ show card ++ ".\n"
+   tell (Play    card) = do
+      pl <- R.ask
+      tell $ playerName pl ++ " play a "    ++ show card ++ ".\n"
+   tell (Reveal  card) = do
+      pl <- R.ask
+      tell $ playerName pl ++ " reveal a "  ++ show card ++ ".\n"
+   tell (Buy     card) = do
+      pl <- R.ask
+      tell $ playerName pl ++ " buy a "     ++ show card ++ ".\n"
+   tell (Gain    card) = do
+      pl <- R.ask
+      tell $ playerName pl ++ " gain a "    ++ show card ++ ".\n"
+   tell Shuffle        = do
+      pl <- R.ask
+      tell $ playerName pl ++ " shuffle your deck.\n"
+instance ODevice MyDom Int where
    tell x = tell $ show x ++ "\n"
+
+-- Show Player
+playerName :: Player -> String
+playerName x = "Player" ++ show x
 
 -- Show Card instance
 instance Show Card where

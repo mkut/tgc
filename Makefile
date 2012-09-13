@@ -14,9 +14,11 @@ SOURCES = \
 	TableGameCombinator/Choice.hs \
 	TableGameCombinator/Phase.hs \
 	TableGameCombinator/Phase/Enum.hs \
+	TableGameCombinator/Phase/Enum/MultiPlayer.hs \
 	TableGameCombinator/State.hs \
 	TableGameCombinator/Zone.hs \
 	TableGameCombinator/Tag.hs \
+	TableGameCombinator/Player.hs \
 	Sample/Dominion.hs \
 	Sample/Dominion/Base.hs \
 	Sample/Dominion/Phase.hs \
