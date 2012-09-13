@@ -11,11 +11,13 @@ module TableGameCombinator.Core
    , doUntil
    , doUntilBy
    , doWhile
+   , doWhileBy
    , keep
    
    ) where
 
 import Control.Monad
+import Control.Applicative
 import qualified Data.Traversable as Trav
 
 -- I/O Device
@@ -54,9 +56,7 @@ doUntil proc = do
       Nothing -> doUntil proc
 
 doUntilBy :: Monad m => (a -> Bool) -> m a -> m a
-doUntilBy f proc = do
-   x <- proc
-   if f x then return x else doUntilBy f proc
+doUntilBy f = doUntil . liftM (maybeBy f)
 
 doWhile :: Monad m => m (Maybe a) -> m [a]
 doWhile proc = do
@@ -64,6 +64,12 @@ doWhile proc = do
    case mx of
       Just x  -> liftM (x:) $ doWhile proc
       Nothing -> return []
+
+doWhileBy :: Monad m => (a -> Bool) -> m a -> m [a]
+doWhileBy f = doWhile . liftM (maybeBy f)
+
+maybeBy :: (a -> Bool) -> a -> Maybe a
+maybeBy f x = if f x then Just x else Nothing
 
 keep :: Monad m => (a -> m b) -> a -> m a
 keep f x = do
