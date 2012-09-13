@@ -50,12 +50,12 @@ instance ODevice MyDom DominionState where
    tell st = do
       pl <- R.ask
       let supp       =                           L.get supply       st
-          deckLen    = length          . (!pl) $ L.get deck         st
-          discardLen = MS.size         . (!pl) $ L.get discardPile  st
-          coin       =                           L.get coinCount    st
-          action     =                           L.get actionCount  st
-          buy        =                           L.get buyCount     st
-          played     = map withoutTags . (!pl) $ L.get playField    st
+          deckLen    = length          $ (!pl) $ L.get deck         st
+          discardLen = MS.size         $ (!pl) $ L.get discardPile  st
+          coin       =                   (!pl) $ L.get coinCount    st
+          action     =                   (!pl) $ L.get actionCount  st
+          buy        =                   (!pl) $ L.get buyCount     st
+          played     = map withoutTags $ (!pl) $ L.get playField    st
           h          =                   (!pl) $ L.get hand         st
       tell $ replicate 60 '=' ++ "\n"
       tell $ "Supply "

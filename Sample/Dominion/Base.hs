@@ -19,6 +19,7 @@ import System.IO
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader (ReaderT, runReaderT)
+import qualified Control.Monad.Reader as R
 import Control.Monad.State.Class (MonadState)
 import Control.Monad.State.Lazy (StateT)
 import qualified Control.Monad.State.Lazy as S
@@ -62,11 +63,24 @@ data DomPhase = ActionPhase
               | CleanUpPhase
               deriving (Show, Eq, Enum)
 
--- Type
+-- Player
 data Player = Player1
             | Player2
             deriving (Eq, Ord, Enum, Show, Ix)
 
+players :: [Player]
+players = [Player1 ..]
+
+opponents :: MyDom [Player]
+opponents = flip filter players . (/=) <$> R.ask
+
+eachPlayersDo :: [Player] -> MyDom a -> Dom ()
+eachPlayersDo pls proc = forM_ pls $ runReaderT proc
+
+eachOpponentsDo :: MyDom a -> MyDom ()
+eachOpponentsDo proc = do
+   ops <- opponents
+   lift $ eachPlayersDo ops proc
 -- GameState
 data DominionState = DS
    { _activePlayer :: Player

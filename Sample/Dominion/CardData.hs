@@ -104,13 +104,13 @@ woodcutter = Card
    (cost 3)
    (vp 0)
    (wt $ plusBuy 1 *> plusCoin 2)
-councilRoom :: DomDevice MyDom => Card -- incomplete
+councilRoom :: DomDevice MyDom => Card
 councilRoom = Card
    "CouncilRoom"
    Action
    (cost 5)
    (vp 0)
-   (wt $ plusCard 4 *> plusBuy 1)
+   (wt $ plusCard 4 *> plusBuy 1 *> eachOpponentsDo (plusCard 1))
 throneRoom :: DomDevice MyDom => Card
 throneRoom = Card
    "ThroneRoom"
