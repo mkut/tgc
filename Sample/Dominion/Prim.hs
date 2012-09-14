@@ -92,6 +92,20 @@ discard card = do
    tell $ Discard card
    void $ movePort (fromHand card) toDiscard
 
+discardDeckTop :: DomDevice MyDom
+               => MyDom (Maybe Card)
+discardDeckTop = do -- 順番逆にする
+   mcard <- movePort fromDeckTop toDiscard
+   when (isJust mcard) $ tell $ Discard $ fromJust mcard
+   return mcard
+
+discardRevealed :: DomDevice MyDom
+                => Card
+                -> MyDom ()
+discardRevealed card = do
+   tell $ Discard card
+   void $ movePort (fromAsideBy (==card)) toDiscard
+
 -- Play a card
 playTagged :: DomDevice MyDom
            => Tag
@@ -146,6 +160,13 @@ trashTagged :: DomDevice MyDom
             -> MyDom (Maybe Card)
 trashTagged t = movePortWith withoutTags (fromPlayTagged t) toTrash
 
+trashRevealed :: DomDevice MyDom
+              => Card
+              -> MyDom ()
+trashRevealed card = do
+   tell $ Trash card
+   void $ movePort (fromAsideBy (==card)) toTrash
+
 -- Gain a card
 gainCard :: DomDevice MyDom
          => Card
@@ -169,6 +190,13 @@ gainCardToHand :: DomDevice MyDom
 gainCardToHand card = do
    tell $ Gain card
    void $ movePort (fromSupply card) toHand
+
+gainCardFromTrash :: DomDevice MyDom
+                  => Card
+                  -> MyDom ()
+gainCardFromTrash card = do
+   tell $ Gain card
+   void $ movePort (fromTrash card) toDiscard
 
 -- Shuffle a deck
 shuffleDeck :: DomDevice MyDom => MyDom ()
@@ -197,6 +225,9 @@ handOps = gets hand' MS.distinctElems
 
 supplyOps :: Dom [Card]
 supplyOps = gets supply MS.distinctElems
+
+asideOps :: Dom [Card]
+asideOps = gets aside MS.distinctElems
 
 -- Choice
 chooseCard :: DomDevice MyDom

@@ -71,16 +71,31 @@ data Player = Player1
 players :: [Player]
 players = [Player1 ..]
 
-opponents :: MyDom [Player]
-opponents = flip filter players . (/=) <$> R.ask
+playersFrom :: Player -> [Player]
+playersFrom pl = take (length players) $ dropWhile (/=pl) $ cycle players
 
-eachPlayersDo :: [Player] -> MyDom a -> Dom ()
-eachPlayersDo pls proc = forM_ pls $ runReaderT proc
+you :: MyDom Player
+you = R.ask
+
+opponents :: MyDom [Player]
+opponents = tail . playersFrom <$> R.ask
+
+playersDo :: [Player] -> MyDom a -> Dom ()
+playersDo pls proc = forM_ pls $ runReaderT proc
+
+eachPlayersDo :: MyDom a -> MyDom ()
+eachPlayersDo proc = do
+   y <- you
+   lift $ playersDo (playersFrom y) proc
 
 eachOpponentsDo :: MyDom a -> MyDom ()
 eachOpponentsDo proc = do
    ops <- opponents
-   lift $ eachPlayersDo ops proc
+   lift $ playersDo ops proc
+
+heDo :: Player -> MyDom a -> Dom a
+heDo pl proc = runReaderT proc pl
+
 -- GameState
 data DominionState = DS
    { _activePlayer :: Player
@@ -230,6 +245,8 @@ fromDiscardAny = (discardPile', msDeletePortAny)
 
 toTrash :: MyDomIPort MultiSet Card
 toTrash = (trashPile', MS.insert)
+fromTrash :: Card -> MyDomDPort MultiSet Card
+fromTrash c = (trashPile', msDeletePort c)
 
 fromSupply :: Card -> MyDomDPort MultiSet Card
 fromSupply c = (supply', msDeletePort c)

@@ -84,34 +84,33 @@ instance ODevice MyDom (DomPhase, Player) where
 instance ODevice MyDom Log where
    tell (Draw    card) = do
       pl <- R.ask
-      tell $ playerName pl ++ " draw a "    ++ show card ++ ".\n"
+      tell $ show pl ++ " draw a "    ++ show card ++ ".\n"
    tell (Discard card) = do
       pl <- R.ask
-      tell $ playerName pl ++ " discard a " ++ show card ++ ".\n"
+      tell $ show pl ++ " discard a " ++ show card ++ ".\n"
    tell (Trash   card) = do
       pl <- R.ask
-      tell $ playerName pl ++ " trash a "   ++ show card ++ ".\n"
+      tell $ show pl ++ " trash a "   ++ show card ++ ".\n"
    tell (Play    card) = do
       pl <- R.ask
-      tell $ playerName pl ++ " play a "    ++ show card ++ ".\n"
+      tell $ show pl ++ " play a "    ++ show card ++ ".\n"
    tell (Reveal  card) = do
       pl <- R.ask
-      tell $ playerName pl ++ " reveal a "  ++ show card ++ ".\n"
+      tell $ show pl ++ " reveal a "  ++ show card ++ ".\n"
    tell (Buy     card) = do
       pl <- R.ask
-      tell $ playerName pl ++ " buy a "     ++ show card ++ ".\n"
+      tell $ show pl ++ " buy a "     ++ show card ++ ".\n"
    tell (Gain    card) = do
       pl <- R.ask
-      tell $ playerName pl ++ " gain a "    ++ show card ++ ".\n"
+      tell $ show pl ++ " gain a "    ++ show card ++ ".\n"
    tell Shuffle        = do
       pl <- R.ask
-      tell $ playerName pl ++ " shuffle your deck.\n"
+      tell $ show pl ++ " shuffle your deck.\n"
 instance ODevice MyDom Int where
-   tell x = tell $ show x ++ "\n"
+   tell x = do
+      pl <- R.ask
+      tell $ show pl ++ ": " ++ show x ++ "\n"
 
--- Show Player
-playerName :: Player -> String
-playerName x = "Player" ++ show x
 
 -- Show Card instance
 instance Show Card where

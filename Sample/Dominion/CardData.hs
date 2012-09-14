@@ -214,7 +214,18 @@ thief = Card
    Action
    (cost 4)
    (vp 0)
-   noAction
+   (wt $ do
+      y <- you
+      eachOpponentsDo $ do
+         replicateM_ 2 $ revealDeckTop *> movePort fromDeckTop toAside
+         lift $ heDo y $ chooseCard choose1 =<< filterM (return . withCardType Treasure) =<< lift asideOps
+         mapM_ discardRevealed =<< gets aside' MS.elems)
+   where
+      choose1 card = do
+         trashRevealed card
+         choose2 card
+      choose2 card = may msg $ gainCardFromTrash card
+      msg = "Gain this card? [yes/no]"
 adventurer :: DomDevice MyDom => Card
 adventurer = Card
    "Adventurer"
@@ -248,14 +259,18 @@ witch = Card
    Action
    (cost 5)
    (vp 0)
-   (wt $ plusCard 2)
+   (wt $ eachOpponentsDo $ gainCard curse)
 spy :: DomDevice MyDom => Card
 spy = Card
    "Spy"
    Action
    (cost 4)
    (vp 0)
-   (wt $ plusCard 1 *> plusAction 1 *> (wt $ may msg (movePort fromDeckTop toDiscard)) `ifYouDo` revealDeckTop)
+   (wt $ do
+      y <- you
+      plusCard 1
+      plusAction 1
+      eachPlayersDo $ (\_ -> lift $ heDo y $ may msg discardDeckTop) `ifYouDo` revealDeckTop)
    where
       msg = "Discard this card? [yes/no]"
 milita :: DomDevice MyDom => Card
@@ -264,7 +279,10 @@ milita = Card
    Action
    (cost 4)
    (vp 0)
-   (wt $ plusCoin 2)
+   (wt $ do
+      eachOpponentsDo $ doUntilBy (<=3) $ do
+         chooseCard discard =<< handOps
+         gets hand' MS.size)
 village :: DomDevice MyDom => Card
 village = Card
    "Village"
@@ -278,7 +296,20 @@ bureaucrat = Card
    Action
    (cost 4)
    (vp 0)
-   (wt $ movePort (fromSupply silver) toDeckTop)
+   (wt $ do
+      movePort (fromSupply silver) toDeckTop
+      eachOpponentsDo $ do
+         mcard <- act1
+         case mcard of
+            Just card -> act2 card
+            Nothing   -> act3)
+   where
+      act1 = selectBy cardName =<< filterM (return . withCardType Victory) =<< gets hand' MS.distinctElems
+      act2 card = do
+         tell $ Reveal card
+         movePort (fromHand card) toDeckTop
+         return ()
+      act3 = mapM_ (tell . Reveal) =<< handOps
 chapel :: DomDevice MyDom => Card
 chapel = Card
    "Chapel"

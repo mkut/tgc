@@ -8,6 +8,8 @@ module TableGameCombinator.Choice
    , chooseSomeBy
 
    , select
+   , selectBy
+   , selectSome
    , selectSomeBy
    ) where
 

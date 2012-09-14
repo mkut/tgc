@@ -73,7 +73,7 @@ initialize = do
          , library
          , cellor
          , gardens
-         -- , thief
+         , thief
          , adventurer
          , moat
          , witch
